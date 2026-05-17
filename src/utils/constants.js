@@ -42,6 +42,7 @@ export const FORTUNE_ACTIF_CATEGORIES = [
   '🚗 Mobilier & Véhicules',
   '💼 Entreprises & Parts',
   '🪙 Crypto & Or',
+  '🤝 Créances & Prêts accordés',
   '📦 Autres actifs',
 ]
 
