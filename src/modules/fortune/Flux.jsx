@@ -9,7 +9,7 @@ const fmt = (n) => Number(n || 0).toLocaleString('fr-MA') + ' MAD'
 const fmtPct = (n) => (isNaN(n) || !isFinite(n) ? '0' : Math.round(n)) + '%'
 
 const EMPTY_REVENU  = { source: '', categorie: FLUX_REVENU_CATEGORIES[0],  montant: '', frequence: 'Mensuel', date: todayKey() }
-const EMPTY_DEPENSE = { libelle: '', categorie: FLUX_DEPENSE_CATEGORIES[0], montant: '', recurrent: false,    date: todayKey() }
+const EMPTY_DEPENSE = { libelle: '', categorie: FLUX_DEPENSE_CATEGORIES[0], montant: '', frequence: 'Mensuel', date: todayKey() }
 const EMPTY_CREANCE = { description: '', personne: '', montant: '', type: 'À recevoir', date_echeance: '', statut: 'En attente' }
 
 function getMonthKey(offset) {
@@ -24,9 +24,26 @@ function monthLabel(key) {
   return new Date(Number(y), Number(m) - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
 }
 
+const FREQ_BADGE = {
+  Mensuel: { bg: '#FFF7ED', color: '#F97316' },
+  Hebdo:   { bg: '#EFF6FF', color: '#3B82F6' },
+  Annuel:  { bg: '#F5F3FF', color: '#7C3AED' },
+  Unique:  { bg: '#F3F4F6', color: '#6B7280' },
+}
+
+function FrequenceBadge({ freq }) {
+  const cfg = FREQ_BADGE[freq]
+  if (!cfg) return null
+  return (
+    <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 99, background: cfg.bg, color: cfg.color, whiteSpace: 'nowrap', flexShrink: 0 }}>
+      {freq}
+    </span>
+  )
+}
+
 function EntryRow({ item, label, onDelete, onToggleStatut }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px', borderBottom: '1px solid var(--border)' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 14px', borderBottom: '1px solid var(--border)' }}>
       <div style={{ flex: 1, minWidth: 0 }}>
         <p style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--text-1)' }}>{label}</p>
         <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 1 }}>{item.categorie} · {item.date || item.date_echeance}</p>
@@ -43,7 +60,7 @@ function EntryRow({ item, label, onDelete, onToggleStatut }) {
           {item.statut}
         </button>
       )}
-      {item.recurrent && <span style={{ fontSize: 10, background: '#EEE', padding: '2px 6px', borderRadius: 99, color: 'var(--text-3)' }}>récurrent</span>}
+      {item.frequence && <FrequenceBadge freq={item.frequence} />}
       <span style={{ fontSize: 14, fontWeight: 700, color: item.type === 'À payer' ? '#EF4444' : 'var(--text-1)', minWidth: 100, textAlign: 'right' }}>
         {fmt(item.montant)}
       </span>
@@ -130,7 +147,7 @@ export default function Flux() {
       { key: 'source',    placeholder: 'Source…',    style: { flex: 1, minWidth: 120 } },
       { key: 'categorie', options: FLUX_REVENU_CATEGORIES, style: { flex: 1, minWidth: 160 } },
       { key: 'montant',   placeholder: 'Montant MAD', type: 'number', style: { width: 120 } },
-      { key: 'frequence', options: ['Mensuel', 'Hebdo', 'Annuel', 'Unique'], style: { width: 110 } },
+      { key: 'frequence', options: [{ label: 'Mensuel', value: 'Mensuel' }, { label: 'Hebdomadaire', value: 'Hebdo' }, { label: 'Annuel', value: 'Annuel' }, { label: 'Unique', value: 'Unique' }], style: { width: 140 } },
       { key: 'date',      type: 'date', style: { width: 140 } },
     ],
   }
@@ -141,8 +158,8 @@ export default function Flux() {
       { key: 'libelle',   placeholder: 'Libellé…',    style: { flex: 1, minWidth: 120 } },
       { key: 'categorie', options: FLUX_DEPENSE_CATEGORIES, style: { flex: 1, minWidth: 160 } },
       { key: 'montant',   placeholder: 'Montant MAD', type: 'number', style: { width: 120 } },
+      { key: 'frequence', options: [{ label: 'Mensuel', value: 'Mensuel' }, { label: 'Hebdomadaire', value: 'Hebdo' }, { label: 'Annuel', value: 'Annuel' }, { label: 'Unique', value: 'Unique' }], style: { width: 140 } },
       { key: 'date',      type: 'date', style: { width: 140 } },
-      { key: 'recurrent', placeholder: 'Récurrent',   type: 'checkbox' },
     ],
   }
 
