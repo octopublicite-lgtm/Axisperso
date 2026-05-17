@@ -52,6 +52,10 @@
     to { transform: translateX(0); opacity: 1; }
   }
   .animate-slide-in { animation: slide-in 0.2s ease forwards; }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
 }
 
 /* ============ AXIS LIFE — Design System ============ */
