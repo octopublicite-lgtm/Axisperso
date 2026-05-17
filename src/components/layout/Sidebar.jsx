@@ -1,6 +1,8 @@
+import { useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { Home, Target, Calendar, BarChart2, BookOpen, Settings, Landmark, LogOut } from 'lucide-react'
+import { Home, Target, Calendar, BarChart2, BookOpen, Settings, Landmark, LogOut, User, Moon } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
+import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 
 const NAV = [
@@ -11,6 +13,8 @@ const NAV = [
   { to: '/fortune',   icon: <Landmark size={18} strokeWidth={2} />,  label: 'Fortune',    end: false },
   { to: '/reflexion', icon: <BookOpen size={18} strokeWidth={2} />,  label: 'Réflexion',  end: false },
 ]
+
+const MOBILE_NAV = NAV.slice(0, 5) // Dashboard → Fortune; Profil replaces the 6th slot
 
 const Logo = () => (
   <svg width={32} height={32} viewBox="0 0 32 32" fill="none" style={{ flexShrink: 0 }}>
@@ -24,14 +28,23 @@ const Logo = () => (
 
 export default function Sidebar() {
   const { settings } = useApp()
+  const { session } = useAuth()
   const navigate = useNavigate()
+  const [profileOpen, setProfileOpen] = useState(false)
+
+  const nom = settings?.nom ?? 'Vous'
+  const initials = nom.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
+  const email = session?.user?.email ?? ''
 
   async function handleLogout() {
     await supabase.auth.signOut()
     navigate('/login')
   }
-  const nom = settings?.nom ?? 'Vous'
-  const initials = nom.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
+
+  function goSettings() {
+    setProfileOpen(false)
+    navigate('/parametres')
+  }
 
   return (
     <>
@@ -87,9 +100,9 @@ export default function Sidebar() {
         </div>
       </aside>
 
-      {/* Mobile bottom nav — 6 items, no Paramètres */}
+      {/* Mobile bottom nav — 5 nav items + Profil */}
       <nav className="mobile-nav">
-        {NAV.map((item) => (
+        {MOBILE_NAV.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
@@ -100,7 +113,64 @@ export default function Sidebar() {
             <span>{item.label}</span>
           </NavLink>
         ))}
+        <button
+          className="mobile-nav-item"
+          onClick={() => setProfileOpen(true)}
+          aria-label="Profil"
+        >
+          <div style={{
+            width: 24, height: 24, borderRadius: '50%',
+            background: '#FF6B35', color: '#fff',
+            fontSize: 9, fontWeight: 700,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            {initials || <User size={12} />}
+          </div>
+          <span>Profil</span>
+        </button>
       </nav>
+
+      {/* Profile bottom sheet (mobile only) */}
+      {profileOpen && (
+        <>
+          <div
+            className="profile-sheet-backdrop"
+            style={{ display: 'block' }}
+            onClick={() => setProfileOpen(false)}
+          />
+          <div className="profile-sheet" style={{ display: 'block' }}>
+            <div className="profile-sheet-handle" />
+
+            <div className="profile-sheet-user">
+              <div className="profile-sheet-avatar">{initials}</div>
+              <div>
+                <div className="profile-sheet-name">{nom}</div>
+                {email && <div className="profile-sheet-email">{email}</div>}
+              </div>
+            </div>
+
+            <div className="profile-sheet-divider" />
+
+            <button className="profile-sheet-item" onClick={goSettings}>
+              <Settings size={18} strokeWidth={2} color="#666" />
+              Paramètres
+            </button>
+            <button className="profile-sheet-item" onClick={() => setProfileOpen(false)}>
+              <Moon size={18} strokeWidth={2} color="#666" />
+              Thème
+            </button>
+
+            <div className="profile-sheet-divider" style={{ marginTop: 8 }} />
+
+            <button className="profile-sheet-item danger" onClick={handleLogout}>
+              <LogOut size={18} strokeWidth={2} />
+              Se déconnecter
+            </button>
+
+            <div style={{ height: 16 }} />
+          </div>
+        </>
+      )}
     </>
   )
 }
