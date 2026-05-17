@@ -1,0 +1,168 @@
+import { createContext, useContext, useState, useCallback, useEffect } from 'react'
+import { useLocalStorage } from '../hooks/useLocalStorage'
+import { useObjectifs } from '../hooks/useObjectifs'
+import { useHabitudes } from '../hooks/useHabitudes'
+import { usePlanning } from '../hooks/usePlanning'
+import { todayKey } from '../utils/dates'
+import { SEED_DATA } from '../utils/constants'
+import { v4 as uuidv4 } from 'uuid'
+
+const AppContext = createContext(null)
+
+export function AppProvider({ children }) {
+  const [settings, setSettings] = useLocalStorage('settings', {
+    nom: 'Amine',
+    heureRituel: '07:00',
+    domainesActifs: ['business', 'sport', 'apprentissage', 'finance', 'marque', 'mindstyle', 'relations', 'spiritualite'],
+  })
+
+  const [toasts, setToasts] = useState([])
+  const objectifsHook = useObjectifs()
+  const habitudesHook = useHabitudes()
+  const planningHook = usePlanning()
+
+  // Migrate mindset/lifestyle → mindstyle (one-time)
+  const [migrated, setMigrated] = useLocalStorage('migrated_mindstyle', false)
+  useEffect(() => {
+    if (migrated) return
+    const migrateKey = (key) => {
+      const raw = localStorage.getItem(key)
+      if (!raw) return
+      try {
+        const data = JSON.parse(raw)
+        const migrated = data.map((item) => {
+          if (item.domaine === 'mindset' || item.domaine === 'lifestyle') {
+            return { ...item, domaine: 'mindstyle' }
+          }
+          return item
+        })
+        localStorage.setItem(key, JSON.stringify(migrated))
+      } catch {}
+    }
+    migrateKey('axislife_objectifs')
+    migrateKey('axislife_habitudes')
+    // Migrate domainesActifs in settings
+    const rawSettings = localStorage.getItem('settings')
+    if (rawSettings) {
+      try {
+        const s = JSON.parse(rawSettings)
+        if (s.domainesActifs) {
+          s.domainesActifs = s.domainesActifs
+            .filter((d) => d !== 'mindset' && d !== 'lifestyle')
+          if (!s.domainesActifs.includes('mindstyle')) s.domainesActifs.push('mindstyle')
+          localStorage.setItem('settings', JSON.stringify(s))
+        }
+      } catch {}
+    }
+    setMigrated(true)
+  }, [migrated, setMigrated])
+
+  // Seed data on first launch
+  const [seeded, setSeeded] = useLocalStorage('seeded', false)
+  useEffect(() => {
+    if (!seeded) {
+      const now = new Date().toISOString()
+      const objectifs = SEED_DATA.objectifs.map((o) => ({
+        ...o,
+        id: uuidv4(),
+        milestones: (o.milestones ?? []).map((m) => ({ ...m, id: uuidv4() })),
+        createdAt: now,
+        updatedAt: now,
+      }))
+      localStorage.setItem('axislife_objectifs', JSON.stringify(objectifs))
+
+      const habitudes = SEED_DATA.habitudes.map((h) => ({ ...h, id: uuidv4(), createdAt: now }))
+      localStorage.setItem('axislife_habitudes', JSON.stringify(habitudes))
+
+      const etapes = SEED_DATA.rituel.map((e, i) => ({ ...e, id: uuidv4(), ordre: i }))
+      localStorage.setItem('axislife_rituel', JSON.stringify({ etapes, completions: {} }))
+
+      setSeeded(true)
+      window.location.reload()
+    }
+  }, [seeded, setSeeded])
+
+  // Daily reset
+  const [lastDate, setLastDate] = useLocalStorage('last_date', '')
+  useEffect(() => {
+    const today = todayKey()
+    if (lastDate && lastDate !== today) {
+      // Reset daily priorities — they are date-keyed so nothing to do explicitly
+    }
+    setLastDate(today)
+  }, [lastDate, setLastDate])
+
+  const addToast = useCallback((message, type = 'success') => {
+    const id = uuidv4()
+    setToasts((prev) => [...prev, { id, message, type }])
+    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 2500)
+  }, [])
+
+  const removeToast = useCallback((id) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id))
+  }, [])
+
+  const exportData = useCallback(() => {
+    const data = {}
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key.startsWith('axislife_')) {
+        try { data[key] = JSON.parse(localStorage.getItem(key)) } catch { data[key] = localStorage.getItem(key) }
+      }
+    }
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `axis-life-export-${todayKey()}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+    addToast('Données exportées avec succès')
+  }, [addToast])
+
+  const importData = useCallback((file) => {
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target.result)
+        Object.entries(data).forEach(([key, value]) => {
+          localStorage.setItem(key, JSON.stringify(value))
+        })
+        addToast('Données importées avec succès')
+        setTimeout(() => window.location.reload(), 500)
+      } catch {
+        addToast('Erreur lors de l\'import', 'error')
+      }
+    }
+    reader.readAsText(file)
+  }, [addToast])
+
+  const resetAll = useCallback(() => {
+    const keys = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key.startsWith('axislife_')) keys.push(key)
+    }
+    keys.forEach((k) => localStorage.removeItem(k))
+    window.location.reload()
+  }, [])
+
+  return (
+    <AppContext.Provider value={{
+      settings, setSettings,
+      ...objectifsHook,
+      ...habitudesHook,
+      ...planningHook,
+      toasts, addToast, removeToast,
+      exportData, importData, resetAll,
+    }}>
+      {children}
+    </AppContext.Provider>
+  )
+}
+
+export function useApp() {
+  const ctx = useContext(AppContext)
+  if (!ctx) throw new Error('useApp must be used within AppProvider')
+  return ctx
+}

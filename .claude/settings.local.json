@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e \"const pkg = require\\('./package.json'\\); console.log\\(JSON.stringify\\(pkg.dependencies, null, 2\\)\\)\")",
+      "Bash(npx vite *)",
+      "Bash(npm run *)",
+      "PowerShell(Get-Process *)",
+      "WebFetch(domain:api.anthropic.com)",
+      "Bash(grep -r \"from '../../components/ui/Card'\" src/modules/ --include=\"*.jsx\" -l)",
+      "Bash(grep -r \"from '../../components/ui/Button'\" src/modules/ --include=\"*.jsx\" -l)",
+      "Bash(git init *)",
+      "Bash(git add *)",
+      "Bash(git commit *)"
+    ]
+  }
+}
