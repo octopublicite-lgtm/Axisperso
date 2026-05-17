@@ -1,6 +1,7 @@
 import { NavLink, useNavigate } from 'react-router-dom'
-import { Home, Target, Calendar, BarChart2, BookOpen, Settings, Landmark } from 'lucide-react'
+import { Home, Target, Calendar, BarChart2, BookOpen, Settings, Landmark, LogOut } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
+import { supabase } from '../../lib/supabase'
 
 const NAV = [
   { to: '/',          icon: <Home size={18} strokeWidth={2} />,      label: 'Dashboard',  end: true },
@@ -24,6 +25,11 @@ const Logo = () => (
 export default function Sidebar() {
   const { settings } = useApp()
   const navigate = useNavigate()
+
+  async function handleLogout() {
+    await supabase.auth.signOut()
+    navigate('/login')
+  }
   const nom = settings?.nom ?? 'Vous'
   const initials = nom.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
 
@@ -61,6 +67,16 @@ export default function Sidebar() {
             <Settings size={18} strokeWidth={2} />
             <span>Paramètres</span>
           </NavLink>
+          <button
+            onClick={handleLogout}
+            className="nav-item"
+            style={{ color: '#EF4444', width: '100%', textAlign: 'left' }}
+            onMouseEnter={e => e.currentTarget.style.background = '#FEF2F2'}
+            onMouseLeave={e => e.currentTarget.style.background = ''}
+          >
+            <LogOut size={18} strokeWidth={2} style={{ color: '#EF4444' }} />
+            <span>Se déconnecter</span>
+          </button>
           <div className="sidebar-user">
             <div className="avatar">{initials}</div>
             <div style={{ minWidth: 0, flex: 1 }}>
