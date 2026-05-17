@@ -13,6 +13,7 @@ export const DOMAIN_COLORS = {
   impact:        { color: '#7C3AED', light: '#F5F3FF' },
   sante_mentale: { color: '#14B8A6', light: '#F0FDFA' },
   reseau:        { color: '#64748B', light: '#F8FAFC' },
+  etudes:        { color: '#3B82F6', light: '#EFF6FF' },
 }
 
 export const DOMAINS = [
@@ -30,6 +31,7 @@ export const DOMAINS = [
   { id: 'impact',        label: 'Impact & Legacy',       icon: '📡' },
   { id: 'sante_mentale', label: 'Santé Mentale',         icon: '🧬' },
   { id: 'reseau',        label: 'Réseau',                icon: '🌐' },
+  { id: 'etudes',        label: 'Études',                icon: '🎓' },
 ]
 
 export const FORTUNE_ACTIF_CATEGORIES = [

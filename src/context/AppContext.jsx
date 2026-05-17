@@ -71,7 +71,7 @@ export function AppProvider({ children }) {
       try {
         const s = JSON.parse(raw)
         if (Array.isArray(s.domainesActifs)) {
-          const newIds = ['creativite', 'famille', 'voyage', 'impact', 'sante_mentale', 'reseau']
+          const newIds = ['creativite', 'famille', 'voyage', 'impact', 'sante_mentale', 'reseau', 'etudes']
           let changed = false
           newIds.forEach((id) => {
             if (!s.domainesActifs.includes(id)) { s.domainesActifs.push(id); changed = true }
