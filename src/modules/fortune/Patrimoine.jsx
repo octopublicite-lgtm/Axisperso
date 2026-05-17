@@ -10,6 +10,8 @@ const fmt = (n) => Number(n).toLocaleString('fr-MA') + ' MAD'
 function ItemRow({ item, color, onDelete, onEdit }) {
   const [editing, setEditing] = useState(false)
   const [val, setVal] = useState(item.valeur)
+  const [editHover, setEditHover] = useState(false)
+  const [delHover, setDelHover] = useState(false)
 
   function commit() {
     const n = Number(val)
@@ -17,8 +19,15 @@ function ItemRow({ item, color, onDelete, onEdit }) {
     setEditing(false)
   }
 
+  const iconBtn = (hovered) => ({
+    width: 28, height: 28, borderRadius: 6, border: 'none', flexShrink: 0,
+    background: hovered ? '#F7F7F9' : 'transparent',
+    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+    transition: 'background 0.12s',
+  })
+
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 16px', borderBottom: '1px solid var(--border)' }} className="group-row">
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 16px', borderBottom: '1px solid var(--border)' }}>
       <div style={{ flex: 1, minWidth: 0 }}>
         <span style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--text-1)' }}>{item.nom}</span>
         <span style={{ fontSize: 11, color: 'var(--text-3)', marginLeft: 8 }}>{item.date_maj}</span>
@@ -34,15 +43,28 @@ function ItemRow({ item, color, onDelete, onEdit }) {
           <button onClick={() => setEditing(false)} className="btn-icon"><X size={14} /></button>
         </div>
       ) : (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span
-            style={{ fontSize: 14, fontWeight: 700, color, cursor: 'pointer', minWidth: 110, textAlign: 'right' }}
-            onClick={() => setEditing(true)}
-            title="Cliquer pour modifier"
-          >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ fontSize: 14, fontWeight: 700, color, minWidth: 110, textAlign: 'right' }}>
             {fmt(item.valeur)}
           </span>
-          <button onClick={() => onDelete(item.id)} className="btn-icon" style={{ opacity: 0 }} id={`del-${item.id}`}><Trash2 size={13} /></button>
+          <button
+            onClick={() => setEditing(true)}
+            onMouseEnter={() => setEditHover(true)}
+            onMouseLeave={() => setEditHover(false)}
+            style={iconBtn(editHover)}
+            title="Modifier"
+          >
+            <Pencil size={14} style={{ color: '#AAAAAA' }} />
+          </button>
+          <button
+            onClick={() => onDelete(item.id)}
+            onMouseEnter={() => setDelHover(true)}
+            onMouseLeave={() => setDelHover(false)}
+            style={iconBtn(delHover)}
+            title="Supprimer"
+          >
+            <Trash2 size={14} style={{ color: delHover ? '#EF4444' : '#AAAAAA', transition: 'color 0.12s' }} />
+          </button>
         </div>
       )}
     </div>
