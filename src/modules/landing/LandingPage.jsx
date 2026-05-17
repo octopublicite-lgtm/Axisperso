@@ -85,7 +85,7 @@ export default function LandingPage() {
               Le système de productivité pour entrepreneurs qui veulent construire une vie intentionnelle — objectifs, habitudes, fortune personnelle et réflexion structurée.
             </p>
             <div className="hero-ctas">
-              <button className="btn btn-primary btn-lg" onClick={goSignup}>Commencer gratuitement →</button>
+              <button className="btn btn-primary btn-lg" onClick={goSignup}>Commencer →</button>
               <button className="btn btn-ghost-light btn-lg" onClick={() => scrollTo('features')}>Voir la démo</button>
             </div>
             <div className="trust">
@@ -247,57 +247,40 @@ export default function LandingPage() {
         <div className="container">
           <div className="section-eyebrow">Tarifs</div>
           <h2>Un prix simple et honnête</h2>
-          <p className="lead">Accès complet à toutes les fonctionnalités. Choisissez votre rythme.</p>
-          <div className="pricing">
-            {/* Mensuel */}
-            <div className="plan">
-              <div className="plan-badge">MENSUEL</div>
-              <div className="plan-label">Résiliable à tout moment</div>
-              <div className="plan-price">
-                <span className="price">90 MAD</span>
-                <span className="per">/mois</span>
+          <p className="lead">Accès complet à toutes les fonctionnalités. Un seul paiement.</p>
+          <div style={{ display: 'flex', justifyContent: 'center' }}>
+            <div className="plan plan-pro" style={{ maxWidth: 480, width: '100%' }}>
+              <div className="plan-badge">⭐ OFFRE UNIQUE</div>
+              <div className="plan-crossed" style={{ marginBottom: 4 }}><s>1 080 MAD/an</s></div>
+              <div className="plan-price" style={{ alignItems: 'baseline', gap: 6 }}>
+                <span className="price" style={{ fontSize: 64 }}>300 MAD</span>
+                <span className="per" style={{ fontSize: 20 }}>/an</span>
+              </div>
+              <div style={{ marginBottom: 16 }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#E6FAF4', color: '#00C896', fontWeight: 700, fontSize: 13, padding: '4px 12px', borderRadius: 99 }}>
+                  ✓ Vous économisez 780 MAD
+                </span>
+              </div>
+              <div className="plan-label" style={{ textTransform: 'none', fontSize: 14, letterSpacing: 0, marginBottom: 20 }}>
+                Un seul paiement. Une année complète.
               </div>
               <ul className="plan-features">
                 <li className="yes"><CheckIcon /> Dashboard complet</li>
                 <li className="yes"><CheckIcon /> Objectifs illimités</li>
-                <li className="yes"><CheckIcon /> Habitudes illimitées</li>
-                <li className="yes"><CheckIcon /> Fortune &amp; patrimoine</li>
-                <li className="yes"><CheckIcon /> KPIs personnalisés</li>
-                <li className="yes"><CheckIcon /> Bilans hebdo &amp; mensuel</li>
-                <li className="yes"><CheckIcon /> Journal personnel</li>
-              </ul>
-              <button className="btn btn-outline" style={{ width: '100%', borderColor: '#FF6B35', color: '#FF6B35' }} onClick={goSignup}>
-                Commencer à 90 MAD
-              </button>
-              <div className="plan-note">= 500 MAD / an si mensuel</div>
-            </div>
-            {/* Annuel */}
-            <div className="plan plan-pro">
-              <div className="plan-badge">⭐ MEILLEURE OFFRE</div>
-              <div className="plan-label">Économisez 40% vs mensuel</div>
-              <div className="plan-price">
-                <span className="price">300 MAD</span>
-                <span className="per">/an</span>
-              </div>
-              <div className="plan-crossed"><s>500 MAD</s> → 300 MAD</div>
-              <ul className="plan-features">
-                <li className="yes"><CheckIcon /> Dashboard complet</li>
-                <li className="yes"><CheckIcon /> Objectifs illimités</li>
-                <li className="yes"><CheckIcon /> Habitudes illimitées</li>
-                <li className="yes"><CheckIcon /> Fortune &amp; patrimoine</li>
+                <li className="yes"><CheckIcon /> Habitudes &amp; streaks illimités</li>
+                <li className="yes"><CheckIcon /> Fortune &amp; patrimoine complet</li>
                 <li className="yes"><CheckIcon /> KPIs personnalisés</li>
                 <li className="yes"><CheckIcon /> Bilans hebdo &amp; mensuel</li>
                 <li className="yes"><CheckIcon /> Journal personnel</li>
                 <li className="yes"><CheckIcon /> Support prioritaire</li>
               </ul>
-              <button className="btn btn-primary" style={{ width: '100%' }} onClick={goSignup}>
-                Choisir l'offre annuelle →
+              <button className="btn btn-primary" style={{ width: '100%', height: 56, fontSize: 16, borderRadius: 12 }} onClick={goSignup}>
+                Démarrer maintenant →
               </button>
-              <div className="plan-savings">✓ Économie de 200 MAD par rapport au mensuel</div>
+              <div className="plan-note" style={{ marginTop: 14 }}>
+                🔒 Paiement sécurisé · ↩️ Remboursé si non satisfait · 🇲🇦 Prix en Dirhams
+              </div>
             </div>
-          </div>
-          <div className="pricing-foot">
-            <span>🔒 Paiement sécurisé</span>·<span>↩️ Satisfait ou remboursé 7 jours</span>·<span>🇲🇦 Prix en Dirhams</span>
           </div>
         </div>
       </section>
