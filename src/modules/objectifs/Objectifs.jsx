@@ -11,7 +11,7 @@ import SuiviDomaine from './SuiviDomaine'
 import HabitudeModal from './HabitudeModal'
 import { Plus } from 'lucide-react'
 
-function MobileDomainPills({ activeDomain, setActiveDomain, domainCounts, objectifs }) {
+function MobileDomainPills({ activeDomain, setActiveDomain, domainCounts, objectifs, visibleDomains }) {
   return (
     <div className="domain-pills-mobile">
       <div
@@ -20,7 +20,7 @@ function MobileDomainPills({ activeDomain, setActiveDomain, domainCounts, object
       >
         🎯 Tous ({objectifs.length})
       </div>
-      {DOMAINS.map((d) => {
+      {visibleDomains.map((d) => {
         const color = getDomainColor(d.id)
         const active = activeDomain === d.id
         return (
@@ -78,7 +78,7 @@ function FinanceBanner() {
 }
 
 export default function Objectifs() {
-  const { objectifs } = useApp()
+  const { objectifs, settings } = useApp()
   const [activeDomain, setActiveDomain] = useState(null)
   const [filterHorizon, setFilterHorizon] = useState('Tous')
   const [filterStatut, setFilterStatut] = useState('Tous')
@@ -95,6 +95,11 @@ export default function Objectifs() {
     })
   }, [objectifs, activeDomain, filterHorizon, filterStatut])
 
+  const visibleDomains = useMemo(() => {
+    const ids = settings.domainesActifs
+    return ids ? DOMAINS.filter((d) => ids.includes(d.id)) : DOMAINS
+  }, [settings.domainesActifs])
+
   const domainCounts = useMemo(() => {
     const map = {}
     objectifs.forEach((o) => { map[o.domaine] = (map[o.domaine] ?? 0) + 1 })
@@ -109,7 +114,7 @@ export default function Objectifs() {
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 24 }}>
         <div>
           <h1 className="page-title">Objectifs</h1>
-          <p className="page-subtitle">{filtered.length} sur {objectifs.length} affichés · {DOMAINS.length} domaines</p>
+          <p className="page-subtitle">{filtered.length} sur {objectifs.length} affichés · {visibleDomains.length} domaines</p>
         </div>
         <button className="btn btn-primary" onClick={openCreate}>
           <Plus size={15} strokeWidth={2.4} /> Nouvel objectif
@@ -122,6 +127,7 @@ export default function Objectifs() {
         setActiveDomain={setActiveDomain}
         domainCounts={domainCounts}
         objectifs={objectifs}
+        visibleDomains={visibleDomains}
       />
 
       <div className="with-side">
@@ -138,7 +144,7 @@ export default function Objectifs() {
               <span className="name">Tous</span>
               <span className="count">{objectifs.length}</span>
             </div>
-            {DOMAINS.map((d) => {
+            {visibleDomains.map((d) => {
               const color = getDomainColor(d.id)
               const active = activeDomain === d.id
               return (

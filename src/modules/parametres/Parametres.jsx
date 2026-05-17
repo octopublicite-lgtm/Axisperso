@@ -9,16 +9,16 @@ import { getDomainColor } from '../../utils/colors'
 import { Download, Upload, Trash2 } from 'lucide-react'
 
 export default function Parametres() {
-  const { settings, setSettings, exportData, importData, resetAll } = useApp()
+  const { settings, setSettings, saveActiveDomains, exportData, importData, resetAll } = useApp()
   const [showConfirmReset, setShowConfirmReset] = useState(false)
   const fileRef = useRef(null)
 
   function updateSettings(k, v) { setSettings((p) => ({ ...p, [k]: v })) }
 
   function toggleDomain(id) {
-    const actifs = settings.domainesActifs ?? []
-    const next = actifs.includes(id) ? actifs.filter((d) => d !== id) : [...actifs, id]
-    updateSettings('domainesActifs', next)
+    const current = settings.domainesActifs ?? DOMAINS.map((d) => d.id)
+    const next = current.includes(id) ? current.filter((d) => d !== id) : [...current, id]
+    saveActiveDomains(next)
   }
 
   function handleImport(e) {
@@ -53,7 +53,7 @@ export default function Parametres() {
           <p className="text-xs font-semibold text-muted uppercase tracking-widest mb-4">Domaines actifs</p>
           <div className="flex flex-col gap-2">
             {DOMAINS.map((d) => {
-              const active = (settings.domainesActifs ?? []).includes(d.id)
+              const active = settings.domainesActifs ? settings.domainesActifs.includes(d.id) : true
               const color = getDomainColor(d.id)
               return (
                 <div key={d.id} className="flex items-center justify-between">

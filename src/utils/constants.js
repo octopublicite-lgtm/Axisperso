@@ -7,17 +7,29 @@ export const DOMAIN_COLORS = {
   mindstyle:     { color: '#8B5CF6', light: '#F2EEFF' },
   relations:     { color: '#10B981', light: '#E8FBF5' },
   spiritualite:  { color: '#C2A06E', light: '#FBF6EE' },
+  creativite:    { color: '#EC4899', light: '#FDF2F8' },
+  famille:       { color: '#F97316', light: '#FFF7ED' },
+  voyage:        { color: '#06B6D4', light: '#ECFEFF' },
+  impact:        { color: '#7C3AED', light: '#F5F3FF' },
+  sante_mentale: { color: '#14B8A6', light: '#F0FDFA' },
+  reseau:        { color: '#64748B', light: '#F8FAFC' },
 }
 
 export const DOMAINS = [
-  { id: 'business',      label: 'Business',       icon: '💼' },
-  { id: 'sport',         label: 'Sport & Santé',  icon: '⚡' },
-  { id: 'apprentissage', label: 'Apprentissage',  icon: '📚' },
-  { id: 'finance',       label: 'Finance',        icon: '📈' },
-  { id: 'marque',        label: 'Marque Perso',   icon: '🎯' },
-  { id: 'mindstyle',     label: 'Mind & Life',    icon: '🌱' },
-  { id: 'relations',     label: 'Relations',      icon: '🤝' },
-  { id: 'spiritualite',  label: 'Spiritualité',   icon: '🤲' },
+  { id: 'business',      label: 'Business & Carrière', icon: '💼' },
+  { id: 'sport',         label: 'Sport & Santé',        icon: '⚡' },
+  { id: 'apprentissage', label: 'Apprentissage',         icon: '📚' },
+  { id: 'finance',       label: 'Finance',               icon: '📈' },
+  { id: 'marque',        label: 'Marque Perso',          icon: '🎯' },
+  { id: 'mindstyle',     label: 'Mind & Life',           icon: '🌱' },
+  { id: 'relations',     label: 'Relations',             icon: '🤝' },
+  { id: 'spiritualite',  label: 'Spiritualité',          icon: '🤲' },
+  { id: 'creativite',    label: 'Créativité',            icon: '🎨' },
+  { id: 'famille',       label: 'Famille',               icon: '👨‍👩‍👧' },
+  { id: 'voyage',        label: 'Voyage & Aventure',     icon: '🌍' },
+  { id: 'impact',        label: 'Impact & Legacy',       icon: '📡' },
+  { id: 'sante_mentale', label: 'Santé Mentale',         icon: '🧬' },
+  { id: 'reseau',        label: 'Réseau',                icon: '🌐' },
 ]
 
 export const FORTUNE_ACTIF_CATEGORIES = [

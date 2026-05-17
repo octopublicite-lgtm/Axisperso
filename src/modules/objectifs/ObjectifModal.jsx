@@ -19,7 +19,10 @@ const EMPTY = {
 }
 
 export default function ObjectifModal({ isOpen, onClose, editTarget, defaultDomain }) {
-  const { addObjectif, updateObjectif, addToast } = useApp()
+  const { addObjectif, updateObjectif, addToast, settings } = useApp()
+  const visibleDomains = settings.domainesActifs
+    ? DOMAINS.filter((d) => settings.domainesActifs.includes(d.id))
+    : DOMAINS
   const [form, setForm] = useState(EMPTY)
   const [milestoneInput, setMilestoneInput] = useState('')
 
@@ -60,7 +63,7 @@ export default function ObjectifModal({ isOpen, onClose, editTarget, defaultDoma
     <Modal isOpen={isOpen} onClose={onClose} title={editTarget ? 'Modifier l\'objectif' : 'Nouvel objectif'} size="lg">
       <div className="flex flex-col gap-4">
         <Select label="Domaine" value={form.domaine} onChange={(e) => set('domaine', e.target.value)}>
-          {DOMAINS.map((d) => <option key={d.id} value={d.id}>{d.icon} {d.label}</option>)}
+          {visibleDomains.map((d) => <option key={d.id} value={d.id}>{d.icon} {d.label}</option>)}
         </Select>
 
         <Input label="Titre *" value={form.titre} onChange={(e) => set('titre', e.target.value)} placeholder="Mon objectif..." />

@@ -4,16 +4,21 @@ import { useObjectifs } from '../hooks/useObjectifs'
 import { useHabitudes } from '../hooks/useHabitudes'
 import { usePlanning } from '../hooks/usePlanning'
 import { todayKey } from '../utils/dates'
-import { SEED_DATA } from '../utils/constants'
+import { SEED_DATA, DOMAINS } from '../utils/constants'
+import { supabase } from '../lib/supabase'
+import { useAuth } from './AuthContext'
 import { v4 as uuidv4 } from 'uuid'
+
+const ALL_DOMAIN_IDS = DOMAINS.map((d) => d.id)
 
 const AppContext = createContext(null)
 
 export function AppProvider({ children }) {
+  const { session } = useAuth()
   const [settings, setSettings] = useLocalStorage('settings', {
     nom: 'Amine',
     heureRituel: '07:00',
-    domainesActifs: ['business', 'sport', 'apprentissage', 'finance', 'marque', 'mindstyle', 'relations', 'spiritualite'],
+    domainesActifs: ALL_DOMAIN_IDS,
   })
 
   const [toasts, setToasts] = useState([])
@@ -56,6 +61,27 @@ export function AppProvider({ children }) {
     }
     setMigrated(true)
   }, [migrated, setMigrated])
+
+  // Migration: add 6 new domain IDs to existing domainesActifs arrays
+  const [migratedDomainsV2, setMigratedDomainsV2] = useLocalStorage('migrated_domains_v2', false)
+  useEffect(() => {
+    if (migratedDomainsV2) return
+    const raw = localStorage.getItem('axislife_settings')
+    if (raw) {
+      try {
+        const s = JSON.parse(raw)
+        if (Array.isArray(s.domainesActifs)) {
+          const newIds = ['creativite', 'famille', 'voyage', 'impact', 'sante_mentale', 'reseau']
+          let changed = false
+          newIds.forEach((id) => {
+            if (!s.domainesActifs.includes(id)) { s.domainesActifs.push(id); changed = true }
+          })
+          if (changed) localStorage.setItem('axislife_settings', JSON.stringify(s))
+        }
+      } catch {}
+    }
+    setMigratedDomainsV2(true)
+  }, [migratedDomainsV2, setMigratedDomainsV2])
 
   // Seed data on first launch
   const [seeded, setSeeded] = useLocalStorage('seeded', false)
@@ -101,6 +127,26 @@ export function AppProvider({ children }) {
   const removeToast = useCallback((id) => {
     setToasts((prev) => prev.filter((t) => t.id !== id))
   }, [])
+
+  // Load active_domains from Supabase profile when session is available
+  useEffect(() => {
+    if (!session?.user?.id) return
+    supabase.from('profiles').select('active_domains').eq('id', session.user.id).single()
+      .then(({ data }) => {
+        if (data?.active_domains) {
+          setSettings((prev) => ({ ...prev, domainesActifs: data.active_domains }))
+        }
+      })
+      .catch(() => {})
+  }, [session?.user?.id, setSettings])
+
+  const saveActiveDomains = useCallback(async (ids) => {
+    setSettings((prev) => ({ ...prev, domainesActifs: ids }))
+    if (session?.user?.id) {
+      supabase.from('profiles').upsert({ id: session.user.id, active_domains: ids }).catch(() => {})
+    }
+    addToast('Préférences sauvegardées')
+  }, [session?.user?.id, addToast, setSettings])
 
   const exportData = useCallback(() => {
     const data = {}
@@ -149,7 +195,7 @@ export function AppProvider({ children }) {
 
   return (
     <AppContext.Provider value={{
-      settings, setSettings,
+      settings, setSettings, saveActiveDomains,
       ...objectifsHook,
       ...habitudesHook,
       ...planningHook,
