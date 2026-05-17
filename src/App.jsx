@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
 import Sidebar from './components/layout/Sidebar'
@@ -13,32 +14,68 @@ import Parametres from './modules/parametres/Parametres'
 import LandingPage from './modules/landing/LandingPage'
 import LoginPage from './modules/auth/LoginPage'
 
-function AuthLoader() {
+// Skeleton that mirrors the authenticated app shell — never blocks interaction
+function AppSkeleton() {
   return (
-    <div style={{
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      height: '100vh', background: 'linear-gradient(135deg, #1A1A2E 0%, #16213E 50%, #0F3460 100%)',
-    }}>
-      <svg style={{ animation: 'spin 0.8s linear infinite' }} width={40} height={40} viewBox="0 0 24 24" fill="none">
-        <circle cx="12" cy="12" r="10" stroke="rgba(255,107,53,0.25)" strokeWidth="3" />
-        <path d="M12 2a10 10 0 0 1 10 10" stroke="#FF6B35" strokeWidth="3" strokeLinecap="round" />
-      </svg>
+    <div className="app" aria-hidden="true">
+      {/* Sidebar skeleton */}
+      <aside className="sidebar hidden md:flex" style={{ pointerEvents: 'none' }}>
+        <div style={{ padding: '20px 16px', display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
+          <div className="skeleton" style={{ width: 120, height: 22, marginBottom: 20 }} />
+          {[100, 85, 90, 80, 95, 88].map((w, i) => (
+            <div key={i} className="skeleton" style={{ height: 36, width: `${w}%`, borderRadius: 8 }} />
+          ))}
+        </div>
+      </aside>
+      {/* Main content skeleton */}
+      <main className="main">
+        <div className="skeleton" style={{ width: 220, height: 26, marginBottom: 8 }} />
+        <div className="skeleton" style={{ width: 150, height: 14, marginBottom: 28 }} />
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 20 }}>
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="skeleton" style={{ height: 80, borderRadius: 12 }} />
+          ))}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="skeleton" style={{ height: 140, borderRadius: 14 }} />
+          ))}
+        </div>
+      </main>
+    </div>
+  )
+}
+
+// Standalone connection error toast — does not depend on AppContext
+function ConnectionToast({ onDismiss }) {
+  return (
+    <div className="conn-toast">
+      <span>⚠ Erreur de connexion — vérifiez votre réseau</span>
+      <button onClick={onDismiss} aria-label="Fermer">×</button>
     </div>
   )
 }
 
 export default function App() {
-  const { session, loading } = useAuth()
+  const { session, loading, timedOut } = useAuth()
+  const [showConnError, setShowConnError] = useState(false)
 
-  if (loading) return <AuthLoader />
+  useEffect(() => {
+    if (timedOut) setShowConnError(true)
+  }, [timedOut])
+
+  if (loading) return <AppSkeleton />
 
   if (!session) {
     return (
-      <Routes>
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="*" element={<Navigate to="/login" replace />} />
-      </Routes>
+      <>
+        <Routes>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        </Routes>
+        {showConnError && <ConnectionToast onDismiss={() => setShowConnError(false)} />}
+      </>
     )
   }
 
@@ -56,6 +93,7 @@ export default function App() {
         <Route path="/parametres" element={<Parametres />} />
       </Routes>
       <ToastContainer />
+      {showConnError && <ConnectionToast onDismiss={() => setShowConnError(false)} />}
     </div>
   )
 }

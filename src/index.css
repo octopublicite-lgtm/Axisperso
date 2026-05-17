@@ -947,6 +947,48 @@
   input, select, textarea { font-size: 16px !important; } /* prevents iOS zoom */
 }
 
+/* ── Skeleton loaders ── */
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.45; }
+}
+.skeleton {
+  background: #E5E7EB;
+  border-radius: 6px;
+  animation: skeleton-pulse 1.6s ease-in-out infinite;
+}
+
+/* Auth connection error toast (standalone, no AppContext needed) */
+@keyframes connToastIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.conn-toast {
+  position: fixed;
+  top: 16px; right: 16px;
+  z-index: 9999;
+  background: #FEF2F2;
+  border: 1.5px solid #FCA5A5;
+  color: #DC2626;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+  animation: connToastIn 0.2s ease forwards;
+}
+.conn-toast button {
+  color: #DC2626;
+  font-size: 18px;
+  line-height: 1;
+  opacity: 0.6;
+  cursor: pointer;
+}
+.conn-toast button:hover { opacity: 1; }
+
 @keyframes slideUp {
   from { transform: translateY(100%); opacity: 0; }
   to   { transform: translateY(0);    opacity: 1; }
