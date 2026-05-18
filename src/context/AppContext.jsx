@@ -160,20 +160,24 @@ export function AppProvider({ children }) {
 
   // Load active_domains from Supabase profile when session is available
   useEffect(() => {
-    if (!session?.user?.id) return
-    supabase.from('profiles').select('active_domains').eq('id', session.user.id).single()
-      .then(({ data }) => {
-        if (data?.active_domains) {
-          setSettings((prev) => ({ ...prev, domainesActifs: data.active_domains }))
-        }
-      })
-      .catch(() => {})
+    if (!session?.user?.id || !supabase) return
+    try {
+      supabase.from('profiles').select('active_domains').eq('id', session.user.id).single()
+        .then(({ data }) => {
+          if (data?.active_domains) {
+            setSettings((prev) => ({ ...prev, domainesActifs: data.active_domains }))
+          }
+        })
+        .catch(() => {})
+    } catch {}
   }, [session?.user?.id, setSettings])
 
   const saveActiveDomains = useCallback(async (ids) => {
     setSettings((prev) => ({ ...prev, domainesActifs: ids }))
-    if (session?.user?.id) {
-      supabase.from('profiles').upsert({ id: session.user.id, active_domains: ids }).catch(() => {})
+    if (session?.user?.id && supabase) {
+      try {
+        supabase.from('profiles').upsert({ id: session.user.id, active_domains: ids }).catch(() => {})
+      } catch {}
     }
     addToast('Préférences sauvegardées')
   }, [session?.user?.id, addToast, setSettings])

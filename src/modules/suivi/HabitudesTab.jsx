@@ -106,12 +106,14 @@ export default function HabitudesTab() {
   async function handleToggle(habitudeId, dateKey) {
     const wasLogged = isLogged(habitudeId, dateKey)
     toggleLog(habitudeId, dateKey)
-    if (!wasLogged && session?.user?.id) {
-      supabase.from('habitude_logs').insert({
-        habitude_id: habitudeId,
-        user_id: session.user.id,
-        date: dateKey,
-      }).catch(() => {})
+    if (!wasLogged && session?.user?.id && supabase) {
+      try {
+        supabase.from('habitude_logs').insert({
+          habitude_id: habitudeId,
+          user_id: session.user.id,
+          date: dateKey,
+        }).catch(() => {})
+      } catch {}
     }
   }
 

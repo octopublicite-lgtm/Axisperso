@@ -8,9 +8,13 @@ export function AuthProvider({ children }) {
   const [timedOut, setTimedOut] = useState(false)
 
   useEffect(() => {
+    if (!supabase) {
+      setSession(null)
+      return
+    }
+
     let resolved = false
 
-    // 5-second hard timeout — never freeze the UI waiting for Supabase
     const timer = setTimeout(() => {
       if (!resolved) {
         resolved = true
