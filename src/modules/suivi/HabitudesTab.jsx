@@ -1,10 +1,14 @@
 import { useState, useMemo } from 'react'
 import { useApp } from '../../context/AppContext'
+import { useAuth } from '../../context/AuthContext'
 import { useLocalStorage } from '../../hooks/useLocalStorage'
-import { getLast7Days, getLast365Days, todayKey, getWeekDayLabels } from '../../utils/dates'
+import { getWeekDaysForOffset, getLast365Days, todayKey } from '../../utils/dates'
 import { getDomainColor } from '../../utils/colors'
 import { DOMAINS } from '../../utils/constants'
-import { Plus, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
+import { supabase } from '../../lib/supabase'
+import { Plus, Trash2, ChevronDown, ChevronRight, ChevronLeft } from 'lucide-react'
+
+const DAY_LABELS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
 
 const SECTIONS = [
   { id: 'quotidien', label: '📅 Quotidiennes',             freqs: ['Quotidien'] },
@@ -14,55 +18,76 @@ const SECTIONS = [
 
 const EMPTY = { titre: '', icon: '✅', domaine: 'mindstyle', frequence: 'Quotidien' }
 
-function HabitRow({ h, last7, today, isLogged, toggleLog, getStreak, deleteHabitude }) {
-  const streak = getStreak(h.id)
+function DayDots({ h, weekDays, today, isLogged, onToggle, readOnly }) {
   const color = getDomainColor(h.domaine)
   return (
-    <div className="habit-row" style={{ '--c': color }}>
+    <div className="mini-dots">
+      {weekDays.map((d) => {
+        const logged = isLogged(h.id, d)
+        return (
+          <span
+            key={d}
+            style={{
+              cursor: readOnly ? 'default' : 'pointer',
+              height: 28, width: 28, borderRadius: 6,
+              background: logged ? color : '#EEEEEE',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              opacity: readOnly && !logged ? 0.5 : 1,
+            }}
+            onClick={() => !readOnly && onToggle(h.id, d)}
+            title={readOnly ? d : undefined}
+          >
+            {logged && <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>}
+          </span>
+        )
+      })}
+    </div>
+  )
+}
+
+function HabitRow({ h, weekDays, today, isLogged, onToggle, getStreak, deleteHabitude, readOnly }) {
+  const streak = getStreak(h.id)
+  return (
+    <div className="habit-row" style={{ '--c': getDomainColor(h.domaine) }}>
       <div className="name">
         <span>{h.icon}</span>
         <span style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--text-1)' }}>{h.titre || h.nom}</span>
-        <button
-          onClick={() => { if (confirm(`Supprimer "${h.titre || h.nom}" ?`)) deleteHabitude(h.id) }}
-          aria-label="Supprimer"
-          className="btn-icon"
-          style={{ opacity: 0.4 }}
-        >
-          <Trash2 size={12} />
-        </button>
+        {!readOnly && (
+          <button
+            onClick={() => { if (confirm(`Supprimer "${h.titre || h.nom}" ?`)) deleteHabitude(h.id) }}
+            aria-label="Supprimer"
+            className="btn-icon"
+            style={{ opacity: 0.4 }}
+          >
+            <Trash2 size={12} />
+          </button>
+        )}
       </div>
       <div className="streak">
         {streak > 0 ? <><span>🔥</span>{streak}j</> : <span style={{ color: 'var(--text-3)' }}>—</span>}
       </div>
-      <div className="mini-dots">
-        {last7.map((d) => {
-          const logged = isLogged(h.id, d)
-          return (
-            <span
-              key={d}
-              className={logged ? 'on' : ''}
-              style={{ cursor: 'pointer', height: 28, width: 28, borderRadius: 6, background: logged ? color : '#EEEEEE', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-              onClick={() => toggleLog(h.id, d)}
-              title={d}
-            >
-              {logged && <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>}
-            </span>
-          )
-        })}
-      </div>
+      <DayDots h={h} weekDays={weekDays} today={today} isLogged={isLogged} onToggle={onToggle} readOnly={readOnly} />
     </div>
   )
 }
 
 export default function HabitudesTab() {
   const { habitudes, addHabitude, deleteHabitude, toggleLog, isLogged, getStreak, getCompletionForDay, addToast } = useApp()
+  const { session } = useAuth()
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(EMPTY)
+  const [weekOffset, setWeekOffset] = useState(0)
   const [collapsed, setCollapsed] = useLocalStorage('habit_sections', { quotidien: false, semaine: false, hebdo: true })
-  const last7 = getLast7Days()
-  const labels = getWeekDayLabels()
   const today = todayKey()
   const last365 = useMemo(() => getLast365Days(), [])
+
+  const weekDays = useMemo(() => getWeekDaysForOffset(weekOffset), [weekOffset])
+  const readOnly = weekOffset < 0
+
+  const weekLabel = useMemo(() => {
+    const monday = new Date(weekDays[0] + 'T00:00:00')
+    return 'Semaine du ' + monday.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+  }, [weekDays])
 
   function set(k, v) { setForm((p) => ({ ...p, [k]: v })) }
 
@@ -76,6 +101,18 @@ export default function HabitudesTab() {
     setForm(EMPTY)
     setShowForm(false)
     addToast('Habitude ajoutée')
+  }
+
+  async function handleToggle(habitudeId, dateKey) {
+    const wasLogged = isLogged(habitudeId, dateKey)
+    toggleLog(habitudeId, dateKey)
+    if (!wasLogged && session?.user?.id) {
+      supabase.from('habitude_logs').insert({
+        habitude_id: habitudeId,
+        user_id: session.user.id,
+        date: dateKey,
+      }).catch(() => {})
+    }
   }
 
   const grouped = useMemo(() => {
@@ -126,22 +163,47 @@ export default function HabitudesTab() {
         </div>
       )}
 
+      {/* Week navigation */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+        <button className="btn btn-ghost btn-sm" style={{ padding: '6px 8px' }} onClick={() => setWeekOffset((v) => v - 1)}>
+          <ChevronLeft size={16} />
+        </button>
+        <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-1)', minWidth: 200, textAlign: 'center' }}>{weekLabel}</span>
+        <button
+          className="btn btn-ghost btn-sm"
+          style={{ padding: '6px 8px' }}
+          onClick={() => setWeekOffset((v) => v + 1)}
+          disabled={weekOffset >= 0}
+        >
+          <ChevronRight size={16} />
+        </button>
+      </div>
+
       {/* 7-day habit grid */}
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         {habitudes.length === 0 ? (
           <p style={{ fontSize: 13, color: 'var(--text-3)', padding: 20 }}>Aucune habitude créée.</p>
         ) : (
           <>
-            {/* Column headers */}
-            <div className="habit-row" style={{ borderBottom: '1px solid var(--border)', paddingBottom: 10, paddingTop: 10 }}>
+            {/* Column headers with day + date number */}
+            <div className="habit-row" style={{ borderBottom: '1px solid var(--border)', paddingBottom: 8, paddingTop: 8 }}>
               <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Habitude</span>
               <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Streak</span>
               <div style={{ display: 'flex', gap: 4 }}>
-                {last7.map((d, i) => (
-                  <span key={d} style={{ width: 28, textAlign: 'center', fontSize: 10, fontWeight: 700, color: d === today ? 'var(--orange)' : 'var(--text-3)', textTransform: 'uppercase' }}>
-                    {labels[i]}
-                  </span>
-                ))}
+                {weekDays.map((d, i) => {
+                  const isToday = d === today
+                  const dayNum = parseInt(d.split('-')[2], 10)
+                  return (
+                    <div key={d} style={{ width: 28, textAlign: 'center' }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: isToday ? 'var(--orange)' : 'var(--text-3)', textTransform: 'uppercase', lineHeight: 1.2 }}>
+                        {DAY_LABELS[i]}
+                      </div>
+                      <div style={{ fontSize: 10, fontWeight: 600, color: isToday ? 'var(--orange)' : 'var(--text-3)', lineHeight: 1.3 }}>
+                        {dayNum}
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             </div>
 
@@ -173,12 +235,13 @@ export default function HabitudesTab() {
                     <HabitRow
                       key={h.id}
                       h={h}
-                      last7={last7}
+                      weekDays={weekDays}
                       today={today}
                       isLogged={isLogged}
-                      toggleLog={toggleLog}
+                      onToggle={handleToggle}
                       getStreak={getStreak}
                       deleteHabitude={deleteHabitude}
+                      readOnly={readOnly}
                     />
                   ))}
                 </div>

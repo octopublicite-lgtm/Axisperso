@@ -53,6 +53,12 @@ export function getDayOfYear(date = new Date()) {
   return Math.floor(diff / (1000 * 60 * 60 * 24))
 }
 
+export function getWeekDaysForOffset(weekOffset = 0) {
+  const d = new Date()
+  d.setDate(d.getDate() + weekOffset * 7)
+  return getWeekDays(new Date(d))
+}
+
 export function getLast7Days() {
   return Array.from({ length: 7 }, (_, i) => {
     const d = new Date()
