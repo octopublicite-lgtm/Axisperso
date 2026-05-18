@@ -96,6 +96,8 @@ export const FREQUENCE_LABEL = {
   '5x_semaine':   '5x / semaine',
 }
 export const STATUTS = ['En cours', 'Atteint', 'Suspendu']
+export const STATUT_TO_DB   = { 'En cours': 'actif', 'Atteint': 'atteint', 'Suspendu': 'suspendu' }
+export const STATUT_FROM_DB = { 'actif': 'En cours', 'atteint': 'Atteint', 'suspendu': 'Suspendu' }
 
 export const METEO_OPTIONS = [
   { emoji: '😴', label: 'Fatigué' },

@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { STATUT_TO_DB, STATUT_FROM_DB } from '../utils/constants'
 
 // ─── Objectifs ───────────────────────────────────────────────────────────────
 // DB columns: id, user_id, domaine_id, titre, description, horizon, statut,
@@ -22,7 +23,7 @@ function toDbObjectif(o, userId) {
     titre: o.titre ?? '',
     description: o.description ?? '',
     horizon: o.horizon ?? '',
-    statut: o.statut ?? 'actif',
+    statut: STATUT_TO_DB[o.status ?? o.statut] ?? o.statut ?? 'actif',
     progress: o.progress ?? 0,
     kpi: o.kpi ?? '',
     notes: notesEncoded,
@@ -50,7 +51,8 @@ function fromDbObjectif(row) {
     titre: row.titre,
     description: row.description ?? '',
     horizon: row.horizon ?? '',
-    statut: row.statut,
+    statut: STATUT_FROM_DB[row.statut] ?? row.statut,
+    status: STATUT_FROM_DB[row.statut] ?? row.statut,
     progress: row.progress ?? 0,
     kpi: row.kpi ?? '',
     notes,
