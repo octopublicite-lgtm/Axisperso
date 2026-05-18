@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
+import { useAuth } from '../context/AuthContext'
 import { push, pull } from '../lib/cloudSync'
 import { todayKey } from '../utils/dates'
 import { v4 as uuidv4 } from 'uuid'
@@ -7,69 +8,79 @@ function legacyLS(key) {
   try { return JSON.parse(localStorage.getItem(key) || 'null') } catch { return null }
 }
 
-export function useHabitudes(userId) {
+export function useHabitudes() {
+  const { user } = useAuth()
   const [habitudes, setHabitudes] = useState([])
   const [logs, setLogs] = useState({})
   const habitudesMounted = useRef(false)
   const logsMounted = useRef(false)
 
-  // Load from Supabase on login; fall back to localStorage for initial migration
+  // Load from Supabase once user is confirmed; fall back to localStorage for migration
   useEffect(() => {
-    if (!userId) return
+    if (!user) return
+    const userId = user.id
+    console.log('[useHabitudes] fetching for userId:', userId)
+
     pull(userId, 'habitudes').then((data) => {
+      console.log('[useHabitudes] habitudes fetched:', data)
       if (Array.isArray(data) && data.length > 0) {
         setHabitudes(data)
       } else {
         const legacy = legacyLS('axislife_habitudes')
         if (Array.isArray(legacy) && legacy.length > 0) {
+          console.log('[useHabitudes] migrating habitudes from localStorage:', legacy.length)
           setHabitudes(legacy)
           push(userId, 'habitudes', legacy)
         }
       }
-    }).catch(() => {
+    }).catch((err) => {
+      console.error('[useHabitudes] habitudes pull failed:', err)
       const legacy = legacyLS('axislife_habitudes')
       if (Array.isArray(legacy) && legacy.length > 0) setHabitudes(legacy)
     })
 
     pull(userId, 'habitude_logs').then((data) => {
+      console.log('[useHabitudes] logs fetched:', data)
       if (data && typeof data === 'object' && !Array.isArray(data)) {
         setLogs(data)
       } else {
         const legacy = legacyLS('axislife_habitudes_logs')
         if (legacy && typeof legacy === 'object' && !Array.isArray(legacy)) {
+          console.log('[useHabitudes] migrating logs from localStorage')
           setLogs(legacy)
           push(userId, 'habitude_logs', legacy)
         }
       }
-    }).catch(() => {
+    }).catch((err) => {
+      console.error('[useHabitudes] logs pull failed:', err)
       const legacy = legacyLS('axislife_habitudes_logs')
       if (legacy && typeof legacy === 'object') setLogs(legacy)
     })
-  }, [userId]) // eslint-disable-line
+  }, [user]) // eslint-disable-line
 
   // Push habitudes to Supabase on change
   useEffect(() => {
     if (!habitudesMounted.current) { habitudesMounted.current = true; return }
-    push(userId, 'habitudes', habitudes)
+    if (user?.id) push(user.id, 'habitudes', habitudes)
   }, [habitudes]) // eslint-disable-line
 
   // Push logs to Supabase on change
   useEffect(() => {
     if (!logsMounted.current) { logsMounted.current = true; return }
-    push(userId, 'habitude_logs', logs)
+    if (user?.id) push(user.id, 'habitude_logs', logs)
   }, [logs]) // eslint-disable-line
 
   const addHabitude = useCallback((data) => {
     setHabitudes((prev) => [...prev, { ...data, id: uuidv4() }])
-  }, [setHabitudes])
+  }, [])
 
   const updateHabitude = useCallback((id, data) => {
     setHabitudes((prev) => prev.map((h) => (h.id === id ? { ...h, ...data } : h)))
-  }, [setHabitudes])
+  }, [])
 
   const deleteHabitude = useCallback((id) => {
     setHabitudes((prev) => prev.filter((h) => h.id !== id))
-  }, [setHabitudes])
+  }, [])
 
   const toggleLog = useCallback((habitudeId, dateKey = todayKey()) => {
     setLogs((prev) => {
@@ -80,7 +91,7 @@ export function useHabitudes(userId) {
         [dateKey]: exists ? dayLogs.filter((id) => id !== habitudeId) : [...dayLogs, habitudeId],
       }
     })
-  }, [setLogs])
+  }, [])
 
   const isLogged = useCallback(
     (habitudeId, dateKey = todayKey()) => (logs[dateKey] ?? []).includes(habitudeId),
@@ -95,11 +106,8 @@ export function useHabitudes(userId) {
         const d = new Date(today)
         d.setDate(d.getDate() - i)
         const key = d.toISOString().split('T')[0]
-        if ((logs[key] ?? []).includes(habitudeId)) {
-          streak++
-        } else {
-          break
-        }
+        if ((logs[key] ?? []).includes(habitudeId)) streak++
+        else break
       }
       return streak
     },

@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
-  const [session, setSession] = useState(undefined) // undefined = loading
+  const [session, setSession] = useState(undefined) // undefined = still loading
   const [timedOut, setTimedOut] = useState(false)
 
   useEffect(() => {
@@ -55,8 +55,16 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
+  const user = session?.user ?? null
+
+  // Block ALL child components from mounting until the session is confirmed.
+  // This guarantees hooks never race against an unresolved auth state.
+  if (session === undefined) {
+    return <div style={{ minHeight: '100vh' }} />
+  }
+
   return (
-    <AuthContext.Provider value={{ session, loading: session === undefined, timedOut }}>
+    <AuthContext.Provider value={{ session, user, loading: false, timedOut }}>
       {children}
     </AuthContext.Provider>
   )

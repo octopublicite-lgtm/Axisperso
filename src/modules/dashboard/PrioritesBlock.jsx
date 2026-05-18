@@ -10,17 +10,18 @@ function legacyLS(key) {
 }
 
 export default function PrioritesBlock() {
-  const { session } = useAuth()
-  const userId = session?.user?.id
+  const { user } = useAuth()
   const today = todayKey()
   const [allPriorities, setAllPriorities] = useState({})
   const [input, setInput] = useState('')
   const mounted = useRef(false)
 
-  // Load from Supabase on login; fall back to localStorage for initial migration
   useEffect(() => {
-    if (!userId) return
+    if (!user) return
+    const userId = user.id
+    console.log('[PrioritesBlock] fetching for userId:', userId)
     pull(userId, 'priorites').then((data) => {
+      console.log('[PrioritesBlock] fetched:', data)
       if (data && typeof data === 'object') {
         setAllPriorities(data)
       } else {
@@ -30,16 +31,16 @@ export default function PrioritesBlock() {
           push(userId, 'priorites', legacy)
         }
       }
-    }).catch(() => {
+    }).catch((err) => {
+      console.error('[PrioritesBlock] pull failed:', err)
       const legacy = legacyLS('axislife_all_priorites')
       if (legacy && typeof legacy === 'object') setAllPriorities(legacy)
     })
-  }, [userId]) // eslint-disable-line
+  }, [user]) // eslint-disable-line
 
-  // Push to Supabase on change
   useEffect(() => {
     if (!mounted.current) { mounted.current = true; return }
-    push(userId, 'priorites', allPriorities)
+    if (user?.id) push(user.id, 'priorites', allPriorities)
   }, [allPriorities]) // eslint-disable-line
 
   const priorites = allPriorities[today] ?? []
@@ -59,8 +60,6 @@ export default function PrioritesBlock() {
 
   const toggle = (id) => setPriorities((prev) => prev.map((p) => (p.id === id ? { ...p, done: !p.done } : p)))
   const remove = (id) => setPriorities((prev) => prev.filter((p) => p.id !== id))
-
-  const completed = priorites.filter((p) => p.done).length
 
   return (
     <div className="card" style={{ padding: '4px 16px' }}>
@@ -87,12 +86,7 @@ export default function PrioritesBlock() {
               )}
             </div>
             <span className="text">{p.texte}</span>
-            <button
-              onClick={() => remove(p.id)}
-              aria-label="Supprimer"
-              className="btn-icon"
-              style={{ marginLeft: 'auto' }}
-            >
+            <button onClick={() => remove(p.id)} aria-label="Supprimer" className="btn-icon" style={{ marginLeft: 'auto' }}>
               <Trash2 size={13} />
             </button>
           </div>
@@ -109,12 +103,7 @@ export default function PrioritesBlock() {
             className="input"
             style={{ flex: 1 }}
           />
-          <button
-            onClick={add}
-            disabled={!input.trim()}
-            className="btn btn-primary btn-sm"
-            style={{ flexShrink: 0 }}
-          >
+          <button onClick={add} disabled={!input.trim()} className="btn btn-primary btn-sm" style={{ flexShrink: 0 }}>
             <Plus size={14} />
           </button>
         </div>

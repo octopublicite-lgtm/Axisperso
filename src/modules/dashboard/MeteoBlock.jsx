@@ -9,16 +9,17 @@ function legacyLS(key) {
 }
 
 export default function MeteoBlock() {
-  const { session } = useAuth()
-  const userId = session?.user?.id
+  const { user } = useAuth()
   const today = todayKey()
   const [allMeteo, setAllMeteo] = useState({})
   const mounted = useRef(false)
 
-  // Load from Supabase on login; fall back to localStorage for initial migration
   useEffect(() => {
-    if (!userId) return
+    if (!user) return
+    const userId = user.id
+    console.log('[MeteoBlock] fetching for userId:', userId)
     pull(userId, 'meteo').then((data) => {
+      console.log('[MeteoBlock] fetched:', data)
       if (data && typeof data === 'object') {
         setAllMeteo(data)
       } else {
@@ -28,16 +29,16 @@ export default function MeteoBlock() {
           push(userId, 'meteo', legacy)
         }
       }
-    }).catch(() => {
+    }).catch((err) => {
+      console.error('[MeteoBlock] pull failed:', err)
       const legacy = legacyLS('axislife_all_meteo')
       if (legacy && typeof legacy === 'object') setAllMeteo(legacy)
     })
-  }, [userId]) // eslint-disable-line
+  }, [user]) // eslint-disable-line
 
-  // Push to Supabase on change
   useEffect(() => {
     if (!mounted.current) { mounted.current = true; return }
-    push(userId, 'meteo', allMeteo)
+    if (user?.id) push(user.id, 'meteo', allMeteo)
   }, [allMeteo]) // eslint-disable-line
 
   const meteo = allMeteo[today] ?? null

@@ -198,8 +198,8 @@ function Section({ title, data, setData, categories, color, emptyText }) {
 }
 
 export default function Patrimoine() {
-  const { session } = useAuth()
-  const userId = session?.user?.id
+  const { user } = useAuth()
+  const userId = user?.id
   const [actifs, setActifs] = useState(null)
   const [passifs, setPassifs] = useState(null)
   const actifsMounted = useRef(false)
@@ -209,10 +209,14 @@ export default function Patrimoine() {
     try { return JSON.parse(localStorage.getItem(key) || 'null') } catch { return null }
   }
 
-  // Load from Supabase on login; fall back to localStorage, then seed
+  // Load from Supabase once user is confirmed; fall back to localStorage, then seed
   useEffect(() => {
-    if (!userId) return
+    if (!user) return
+    const userId = user.id
+    console.log('[Patrimoine] fetching for userId:', userId)
+
     pull(userId, 'fortune_actifs').then((data) => {
+      console.log('[Patrimoine] actifs fetched:', data)
       if (Array.isArray(data) && data.length > 0) {
         setActifs(data)
       } else {
@@ -226,7 +230,8 @@ export default function Patrimoine() {
           push(userId, 'fortune_actifs', seeded)
         }
       }
-    }).catch(() => {
+    }).catch((err) => {
+      console.error('[Patrimoine] actifs pull failed:', err)
       const legacy = legacyLS('axislife_fortune_actifs')
       setActifs(Array.isArray(legacy) && legacy.length > 0
         ? legacy
@@ -234,6 +239,7 @@ export default function Patrimoine() {
     })
 
     pull(userId, 'fortune_passifs').then((data) => {
+      console.log('[Patrimoine] passifs fetched:', data)
       if (Array.isArray(data) && data.length > 0) {
         setPassifs(data)
       } else {
@@ -247,24 +253,25 @@ export default function Patrimoine() {
           push(userId, 'fortune_passifs', seeded)
         }
       }
-    }).catch(() => {
+    }).catch((err) => {
+      console.error('[Patrimoine] passifs pull failed:', err)
       const legacy = legacyLS('axislife_fortune_passifs')
       setPassifs(Array.isArray(legacy) && legacy.length > 0
         ? legacy
         : SEED_FORTUNE_PASSIFS.map((p) => ({ ...p, id: uuidv4(), date_maj: todayKey() })))
     })
-  }, [userId]) // eslint-disable-line
+  }, [user]) // eslint-disable-line
 
   // Push actifs to Supabase on change
   useEffect(() => {
     if (!actifsMounted.current) { actifsMounted.current = true; return }
-    push(userId, 'fortune_actifs', actifs)
+    if (user?.id) push(user.id, 'fortune_actifs', actifs)
   }, [actifs]) // eslint-disable-line
 
   // Push passifs to Supabase on change
   useEffect(() => {
     if (!passifsMounted.current) { passifsMounted.current = true; return }
-    push(userId, 'fortune_passifs', passifs)
+    if (user?.id) push(user.id, 'fortune_passifs', passifs)
   }, [passifs]) // eslint-disable-line
 
   const safeActifs = actifs ?? []

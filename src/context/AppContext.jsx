@@ -14,17 +14,17 @@ const ALL_DOMAIN_IDS = DOMAINS.map((d) => d.id)
 const AppContext = createContext(null)
 
 export function AppProvider({ children }) {
-  const { session } = useAuth()
+  const { session, user } = useAuth()
   const [settings, setSettings] = useLocalStorage('settings', {
     nom: 'Amine',
     heureRituel: '07:00',
     domainesActifs: ALL_DOMAIN_IDS,
   })
 
-  const userId = session?.user?.id
+  const userId = user?.id
   const [toasts, setToasts] = useState([])
-  const objectifsHook = useObjectifs(userId)
-  const habitudesHook = useHabitudes(userId)
+  const objectifsHook = useObjectifs()
+  const habitudesHook = useHabitudes()
   const planningHook = usePlanning()
 
   // Migrate mindset/lifestyle → mindstyle (one-time)

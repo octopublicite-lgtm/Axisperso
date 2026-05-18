@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
+import { useAuth } from '../context/AuthContext'
 import { push, pull } from '../lib/cloudSync'
 import { v4 as uuidv4 } from 'uuid'
 
@@ -6,33 +7,39 @@ function legacyLS(key) {
   try { return JSON.parse(localStorage.getItem(key) || 'null') } catch { return null }
 }
 
-export function useObjectifs(userId) {
+export function useObjectifs() {
+  const { user } = useAuth()
   const [objectifs, setObjectifs] = useState([])
   const mounted = useRef(false)
 
-  // Load from Supabase on login; fall back to localStorage for initial migration
+  // Load from Supabase once user is confirmed; fall back to localStorage for migration
   useEffect(() => {
-    if (!userId) return
+    if (!user) return
+    const userId = user.id
+    console.log('[useObjectifs] fetching for userId:', userId)
     pull(userId, 'objectifs').then((data) => {
+      console.log('[useObjectifs] fetched:', data)
       if (Array.isArray(data) && data.length > 0) {
         setObjectifs(data)
       } else {
         const legacy = legacyLS('axislife_objectifs')
         if (Array.isArray(legacy) && legacy.length > 0) {
+          console.log('[useObjectifs] migrating from localStorage:', legacy.length, 'items')
           setObjectifs(legacy)
           push(userId, 'objectifs', legacy)
         }
       }
-    }).catch(() => {
+    }).catch((err) => {
+      console.error('[useObjectifs] pull failed:', err)
       const legacy = legacyLS('axislife_objectifs')
       if (Array.isArray(legacy) && legacy.length > 0) setObjectifs(legacy)
     })
-  }, [userId]) // eslint-disable-line
+  }, [user]) // eslint-disable-line
 
-  // Push to Supabase whenever objectifs change (skip first render)
+  // Push to Supabase on every change (skip the initial empty render)
   useEffect(() => {
     if (!mounted.current) { mounted.current = true; return }
-    push(userId, 'objectifs', objectifs)
+    if (user?.id) push(user.id, 'objectifs', objectifs)
   }, [objectifs]) // eslint-disable-line
 
   const addObjectif = useCallback((data) => {
@@ -49,7 +56,7 @@ export function useObjectifs(userId) {
         updatedAt: now,
       },
     ])
-  }, [setObjectifs])
+  }, [])
 
   const updateObjectif = useCallback((id, data) => {
     setObjectifs((prev) =>
@@ -65,11 +72,11 @@ export function useObjectifs(userId) {
         return updated
       })
     )
-  }, [setObjectifs])
+  }, [])
 
   const deleteObjectif = useCallback((id) => {
     setObjectifs((prev) => prev.filter((o) => o.id !== id))
-  }, [setObjectifs])
+  }, [])
 
   const toggleMilestone = useCallback((objectifId, milestoneId) => {
     setObjectifs((prev) =>
@@ -85,7 +92,7 @@ export function useObjectifs(userId) {
           : o
       )
     )
-  }, [setObjectifs])
+  }, [])
 
   return { objectifs, addObjectif, updateObjectif, deleteObjectif, toggleMilestone }
 }
