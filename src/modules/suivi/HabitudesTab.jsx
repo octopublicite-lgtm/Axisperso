@@ -1,23 +1,74 @@
 import { useState, useMemo } from 'react'
-import Badge from '../../components/ui/Badge'
 import { useApp } from '../../context/AppContext'
+import { useLocalStorage } from '../../hooks/useLocalStorage'
 import { getLast7Days, getLast365Days, todayKey, getWeekDayLabels } from '../../utils/dates'
 import { getDomainColor } from '../../utils/colors'
 import { DOMAINS } from '../../utils/constants'
-import { Plus, Trash2 } from 'lucide-react'
+import { Plus, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
+
+const SECTIONS = [
+  { id: 'quotidien', label: '📅 Quotidiennes',             freqs: ['Quotidien'] },
+  { id: 'semaine',   label: '🔄 Plusieurs fois / semaine', freqs: ['3x/semaine', '5x/semaine'] },
+  { id: 'hebdo',     label: '📆 Hebdomadaires',            freqs: ['Hebdomadaire'] },
+]
 
 const EMPTY = { titre: '', icon: '✅', domaine: 'mindstyle', frequence: 'Quotidien' }
+
+function HabitRow({ h, last7, today, isLogged, toggleLog, getStreak, deleteHabitude }) {
+  const streak = getStreak(h.id)
+  const color = getDomainColor(h.domaine)
+  return (
+    <div className="habit-row" style={{ '--c': color }}>
+      <div className="name">
+        <span>{h.icon}</span>
+        <span style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--text-1)' }}>{h.titre || h.nom}</span>
+        <button
+          onClick={() => { if (confirm(`Supprimer "${h.titre || h.nom}" ?`)) deleteHabitude(h.id) }}
+          aria-label="Supprimer"
+          className="btn-icon"
+          style={{ opacity: 0.4 }}
+        >
+          <Trash2 size={12} />
+        </button>
+      </div>
+      <div className="streak">
+        {streak > 0 ? <><span>🔥</span>{streak}j</> : <span style={{ color: 'var(--text-3)' }}>—</span>}
+      </div>
+      <div className="mini-dots">
+        {last7.map((d) => {
+          const logged = isLogged(h.id, d)
+          return (
+            <span
+              key={d}
+              className={logged ? 'on' : ''}
+              style={{ cursor: 'pointer', height: 28, width: 28, borderRadius: 6, background: logged ? color : '#EEEEEE', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              onClick={() => toggleLog(h.id, d)}
+              title={d}
+            >
+              {logged && <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>}
+            </span>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
 
 export default function HabitudesTab() {
   const { habitudes, addHabitude, deleteHabitude, toggleLog, isLogged, getStreak, getCompletionForDay, addToast } = useApp()
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(EMPTY)
+  const [collapsed, setCollapsed] = useLocalStorage('habit_sections', { quotidien: false, semaine: false, hebdo: true })
   const last7 = getLast7Days()
   const labels = getWeekDayLabels()
   const today = todayKey()
   const last365 = useMemo(() => getLast365Days(), [])
 
   function set(k, v) { setForm((p) => ({ ...p, [k]: v })) }
+
+  function toggleSection(id) {
+    setCollapsed((prev) => ({ ...prev, [id]: !prev[id] }))
+  }
 
   function handleAdd() {
     if (!form.titre.trim()) return
@@ -26,6 +77,17 @@ export default function HabitudesTab() {
     setShowForm(false)
     addToast('Habitude ajoutée')
   }
+
+  const grouped = useMemo(() => {
+    const map = {}
+    SECTIONS.forEach((s) => { map[s.id] = [] })
+    habitudes.forEach((h) => {
+      const section = SECTIONS.find((s) => s.freqs.includes(h.frequence))
+      if (section) map[section.id].push(h)
+      else map['quotidien'].push(h)
+    })
+    return map
+  }, [habitudes])
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -70,6 +132,7 @@ export default function HabitudesTab() {
           <p style={{ fontSize: 13, color: 'var(--text-3)', padding: 20 }}>Aucune habitude créée.</p>
         ) : (
           <>
+            {/* Column headers */}
             <div className="habit-row" style={{ borderBottom: '1px solid var(--border)', paddingBottom: 10, paddingTop: 10 }}>
               <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Habitude</span>
               <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Streak</span>
@@ -81,42 +144,43 @@ export default function HabitudesTab() {
                 ))}
               </div>
             </div>
-            {habitudes.map((h) => {
-              const streak = getStreak(h.id)
-              const color = getDomainColor(h.domaine)
+
+            {/* Frequency sections */}
+            {SECTIONS.map((section) => {
+              const items = grouped[section.id]
+              if (items.length === 0) return null
+              const isCollapsed = collapsed[section.id]
               return (
-                <div key={h.id} className="habit-row" style={{ '--c': color }}>
-                  <div className="name">
-                    <span>{h.icon}</span>
-                    <span style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--text-1)' }}>{h.titre || h.nom}</span>
-                    <button
-                      onClick={() => { if (confirm(`Supprimer "${h.titre || h.nom}" ?`)) deleteHabitude(h.id) }}
-                      aria-label="Supprimer"
-                      className="btn-icon"
-                      style={{ opacity: 0.4 }}
-                    >
-                      <Trash2 size={12} />
-                    </button>
+                <div key={section.id}>
+                  <div
+                    onClick={() => toggleSection(section.id)}
+                    style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '8px 16px', background: '#F7F7F9', cursor: 'pointer',
+                      borderBottom: '1px solid var(--border)', userSelect: 'none',
+                    }}
+                  >
+                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-1)' }}>
+                      {section.label}
+                      <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-3)', marginLeft: 8 }}>· {items.length}</span>
+                    </span>
+                    {isCollapsed
+                      ? <ChevronRight size={15} style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+                      : <ChevronDown size={15} style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+                    }
                   </div>
-                  <div className="streak">
-                    {streak > 0 ? <><span>🔥</span>{streak}j</> : <span style={{ color: 'var(--text-3)' }}>—</span>}
-                  </div>
-                  <div className="mini-dots">
-                    {last7.map((d) => {
-                      const logged = isLogged(h.id, d)
-                      return (
-                        <span
-                          key={d}
-                          className={logged ? 'on' : ''}
-                          style={{ cursor: 'pointer', height: 28, width: 28, borderRadius: 6, background: logged ? color : '#EEEEEE', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                          onClick={() => toggleLog(h.id, d)}
-                          title={d}
-                        >
-                          {logged && <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>}
-                        </span>
-                      )
-                    })}
-                  </div>
+                  {!isCollapsed && items.map((h) => (
+                    <HabitRow
+                      key={h.id}
+                      h={h}
+                      last7={last7}
+                      today={today}
+                      isLogged={isLogged}
+                      toggleLog={toggleLog}
+                      getStreak={getStreak}
+                      deleteHabitude={deleteHabitude}
+                    />
+                  ))}
                 </div>
               )
             })}
