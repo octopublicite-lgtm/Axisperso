@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { push, pull } from '../lib/cloudSync'
+import { supabase } from '../lib/supabase'
 import { todayKey } from '../utils/dates'
 import { v4 as uuidv4 } from 'uuid'
 
@@ -78,11 +79,25 @@ export function useHabitudes() {
     setHabitudes((prev) => prev.map((h) => (h.id === id ? { ...h, ...data } : h)))
   }, [])
 
-  const deleteHabitude = useCallback((id) => {
+  const deleteHabitude = useCallback(async (id) => {
+    if (user?.id && supabase) {
+      const { error } = await supabase.from('habitudes').delete().eq('id', id)
+      if (error) { console.error('[deleteHabitude] error:', error.message); return }
+    }
     setHabitudes((prev) => prev.filter((h) => h.id !== id))
-  }, [])
+  }, [user])
 
-  const toggleLog = useCallback((habitudeId, dateKey = todayKey()) => {
+  const toggleLog = useCallback(async (habitudeId, dateKey = todayKey()) => {
+    const dayLogs = logs[dateKey] ?? []
+    const exists = dayLogs.includes(habitudeId)
+    if (exists && user?.id && supabase) {
+      const { error } = await supabase.from('habitude_logs')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('habitude_id', habitudeId)
+        .eq('date', dateKey)
+      if (error) { console.error('[toggleLog] delete error:', error.message); return }
+    }
     setLogs((prev) => {
       const dayLogs = prev[dateKey] ?? []
       const exists = dayLogs.includes(habitudeId)
@@ -91,7 +106,7 @@ export function useHabitudes() {
         [dateKey]: exists ? dayLogs.filter((id) => id !== habitudeId) : [...dayLogs, habitudeId],
       }
     })
-  }, [])
+  }, [logs, user]) // eslint-disable-line
 
   const isLogged = useCallback(
     (habitudeId, dateKey = todayKey()) => (logs[dateKey] ?? []).includes(habitudeId),

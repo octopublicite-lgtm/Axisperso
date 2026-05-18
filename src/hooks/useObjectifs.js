@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { push, pull } from '../lib/cloudSync'
+import { supabase } from '../lib/supabase'
 import { v4 as uuidv4 } from 'uuid'
 
 function legacyLS(key) {
@@ -74,9 +75,13 @@ export function useObjectifs() {
     )
   }, [])
 
-  const deleteObjectif = useCallback((id) => {
+  const deleteObjectif = useCallback(async (id) => {
+    if (user?.id && supabase) {
+      const { error } = await supabase.from('objectifs').delete().eq('id', id)
+      if (error) { console.error('[deleteObjectif] error:', error.message); return }
+    }
     setObjectifs((prev) => prev.filter((o) => o.id !== id))
-  }, [])
+  }, [user])
 
   const toggleMilestone = useCallback((objectifId, milestoneId) => {
     setObjectifs((prev) =>
