@@ -1,10 +1,9 @@
-import { useState, useMemo, useEffect, useRef } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useAuth } from '../../context/AuthContext'
-import { push, pull } from '../../lib/cloudSync'
+import { supabase } from '../../lib/supabase'
 import { todayKey } from '../../utils/dates'
-import { FORTUNE_ACTIF_CATEGORIES, FORTUNE_PASSIF_CATEGORIES, SEED_FORTUNE_ACTIFS, SEED_FORTUNE_PASSIFS } from '../../utils/constants'
+import { FORTUNE_ACTIF_CATEGORIES, FORTUNE_PASSIF_CATEGORIES } from '../../utils/constants'
 import { Trash2, Pencil, ChevronDown, ChevronRight, Plus, Check, X } from 'lucide-react'
-import { v4 as uuidv4 } from 'uuid'
 
 const fmt = (n) => Number(n).toLocaleString('fr-MA') + ' MAD'
 
@@ -120,7 +119,7 @@ function CategoryGroup({ cat, items, color, onDelete, onEdit, onAdd }) {
   )
 }
 
-function Section({ title, data, setData, categories, color, emptyText }) {
+function Section({ title, data, onAdd, onDelete, onEdit, categories, color, emptyText }) {
   const [showTopForm, setShowTopForm] = useState(false)
   const [topForm, setTopForm] = useState({ nom: '', categorie: categories[0], valeur: '' })
 
@@ -136,21 +135,9 @@ function Section({ title, data, setData, categories, color, emptyText }) {
 
   const activeCategories = categories.filter((c) => grouped[c]?.length > 0)
 
-  function addItem(item) {
-    setData((prev) => [...prev, { ...item, id: uuidv4() }])
-  }
-
-  function deleteItem(id) {
-    setData((prev) => prev.filter((i) => i.id !== id))
-  }
-
-  function editItem(id, patch) {
-    setData((prev) => prev.map((i) => i.id === id ? { ...i, ...patch } : i))
-  }
-
   function handleTopAdd() {
     if (!topForm.nom.trim() || !topForm.valeur) return
-    addItem({ nom: topForm.nom, categorie: topForm.categorie, valeur: Number(topForm.valeur), date_maj: todayKey() })
+    onAdd({ nom: topForm.nom, categorie: topForm.categorie, valeur: Number(topForm.valeur), date_maj: todayKey() })
     setTopForm({ nom: '', categorie: categories[0], valeur: '' })
     setShowTopForm(false)
   }
@@ -186,9 +173,9 @@ function Section({ title, data, setData, categories, color, emptyText }) {
               cat={cat}
               items={grouped[cat]}
               color={color}
-              onDelete={deleteItem}
-              onEdit={editItem}
-              onAdd={addItem}
+              onDelete={onDelete}
+              onEdit={onEdit}
+              onAdd={onAdd}
             />
           ))
         )}
@@ -199,86 +186,81 @@ function Section({ title, data, setData, categories, color, emptyText }) {
 
 export default function Patrimoine() {
   const { user } = useAuth()
-  const userId = user?.id
-  const [actifs, setActifs] = useState(null)
-  const [passifs, setPassifs] = useState(null)
-  const actifsMounted = useRef(false)
-  const passifsMounted = useRef(false)
+  const [actifs, setActifs] = useState([])
+  const [passifs, setPassifs] = useState([])
 
-  function legacyLS(key) {
-    try { return JSON.parse(localStorage.getItem(key) || 'null') } catch { return null }
+  useEffect(() => {
+    if (!user || !supabase) return
+    const load = async () => {
+      const { data: actifsData, error: actifsErr } = await supabase
+        .from('fortune_actifs')
+        .select('*')
+        .eq('user_id', user.id)
+      if (actifsErr) console.error('[Patrimoine] actifs error:', actifsErr.message)
+      else if (actifsData) setActifs(actifsData)
+
+      const { data: passifsData, error: passifsErr } = await supabase
+        .from('fortune_passifs')
+        .select('*')
+        .eq('user_id', user.id)
+      if (passifsErr) console.error('[Patrimoine] passifs error:', passifsErr.message)
+      else if (passifsData) setPassifs(passifsData)
+    }
+    load()
+  }, [user])
+
+  async function addActif(item) {
+    if (!supabase || !user?.id) return
+    const { data, error } = await supabase
+      .from('fortune_actifs')
+      .insert({ user_id: user.id, nom: item.nom, categorie: item.categorie, valeur: item.valeur, date_maj: item.date_maj })
+      .select('*')
+      .single()
+    if (error) { console.error('[addActif] error:', error.message); return }
+    setActifs((prev) => [...prev, data])
   }
 
-  // Load from Supabase once user is confirmed; fall back to localStorage, then seed
-  useEffect(() => {
-    if (!user) return
-    const userId = user.id
-    console.log('[Patrimoine] fetching for userId:', userId)
+  async function editActif(id, patch) {
+    if (!supabase || !user?.id) return
+    const { error } = await supabase.from('fortune_actifs').update(patch).eq('id', id)
+    if (error) { console.error('[editActif] error:', error.message); return }
+    setActifs((prev) => prev.map((a) => a.id === id ? { ...a, ...patch } : a))
+  }
 
-    pull(userId, 'fortune_actifs').then((data) => {
-      console.log('[Patrimoine] actifs fetched:', data)
-      if (Array.isArray(data) && data.length > 0) {
-        setActifs(data)
-      } else {
-        const legacy = legacyLS('axislife_fortune_actifs')
-        if (Array.isArray(legacy) && legacy.length > 0) {
-          setActifs(legacy)
-          push(userId, 'fortune_actifs', legacy)
-        } else {
-          const seeded = SEED_FORTUNE_ACTIFS.map((a) => ({ ...a, id: uuidv4(), date_maj: todayKey() }))
-          setActifs(seeded)
-          push(userId, 'fortune_actifs', seeded)
-        }
-      }
-    }).catch((err) => {
-      console.error('[Patrimoine] actifs pull failed:', err)
-      const legacy = legacyLS('axislife_fortune_actifs')
-      setActifs(Array.isArray(legacy) && legacy.length > 0
-        ? legacy
-        : SEED_FORTUNE_ACTIFS.map((a) => ({ ...a, id: uuidv4(), date_maj: todayKey() })))
-    })
+  async function deleteActif(id) {
+    if (!supabase || !user?.id) return
+    const { error } = await supabase.from('fortune_actifs').delete().eq('id', id)
+    if (error) { console.error('[deleteActif] error:', error.message); return }
+    setActifs((prev) => prev.filter((a) => a.id !== id))
+  }
 
-    pull(userId, 'fortune_passifs').then((data) => {
-      console.log('[Patrimoine] passifs fetched:', data)
-      if (Array.isArray(data) && data.length > 0) {
-        setPassifs(data)
-      } else {
-        const legacy = legacyLS('axislife_fortune_passifs')
-        if (Array.isArray(legacy) && legacy.length > 0) {
-          setPassifs(legacy)
-          push(userId, 'fortune_passifs', legacy)
-        } else {
-          const seeded = SEED_FORTUNE_PASSIFS.map((p) => ({ ...p, id: uuidv4(), date_maj: todayKey() }))
-          setPassifs(seeded)
-          push(userId, 'fortune_passifs', seeded)
-        }
-      }
-    }).catch((err) => {
-      console.error('[Patrimoine] passifs pull failed:', err)
-      const legacy = legacyLS('axislife_fortune_passifs')
-      setPassifs(Array.isArray(legacy) && legacy.length > 0
-        ? legacy
-        : SEED_FORTUNE_PASSIFS.map((p) => ({ ...p, id: uuidv4(), date_maj: todayKey() })))
-    })
-  }, [user]) // eslint-disable-line
+  async function addPassif(item) {
+    if (!supabase || !user?.id) return
+    const { data, error } = await supabase
+      .from('fortune_passifs')
+      .insert({ user_id: user.id, nom: item.nom, categorie: item.categorie, valeur: item.valeur, date_maj: item.date_maj })
+      .select('*')
+      .single()
+    if (error) { console.error('[addPassif] error:', error.message); return }
+    setPassifs((prev) => [...prev, data])
+  }
 
-  // Push actifs to Supabase on change
-  useEffect(() => {
-    if (!actifsMounted.current) { actifsMounted.current = true; return }
-    if (user?.id) push(user.id, 'fortune_actifs', actifs)
-  }, [actifs]) // eslint-disable-line
+  async function editPassif(id, patch) {
+    if (!supabase || !user?.id) return
+    const { error } = await supabase.from('fortune_passifs').update(patch).eq('id', id)
+    if (error) { console.error('[editPassif] error:', error.message); return }
+    setPassifs((prev) => prev.map((p) => p.id === id ? { ...p, ...patch } : p))
+  }
 
-  // Push passifs to Supabase on change
-  useEffect(() => {
-    if (!passifsMounted.current) { passifsMounted.current = true; return }
-    if (user?.id) push(user.id, 'fortune_passifs', passifs)
-  }, [passifs]) // eslint-disable-line
+  async function deletePassif(id) {
+    if (!supabase || !user?.id) return
+    const { error } = await supabase.from('fortune_passifs').delete().eq('id', id)
+    if (error) { console.error('[deletePassif] error:', error.message); return }
+    setPassifs((prev) => prev.filter((p) => p.id !== id))
+  }
 
-  const safeActifs = actifs ?? []
-  const safePassifs = passifs ?? []
-
-  const totalActifs = safeActifs.reduce((s, a) => s + a.valeur, 0)
-  const totalPassifs = safePassifs.reduce((s, p) => s + p.valeur, 0)
+  const totalActifs = actifs.reduce((s, a) => s + a.valeur, 0)
+  const totalPassifs = passifs.reduce((s, p) => s + p.valeur, 0)
   const fortuneNette = totalActifs - totalPassifs
 
   return (
@@ -301,16 +283,20 @@ export default function Patrimoine() {
 
       <Section
         title="Actifs"
-        data={safeActifs}
-        setData={setActifs}
+        data={actifs}
+        onAdd={addActif}
+        onEdit={editActif}
+        onDelete={deleteActif}
         categories={FORTUNE_ACTIF_CATEGORIES}
         color="#00C896"
         emptyText="Aucun actif enregistré. Ajoutez votre premier actif."
       />
       <Section
         title="Passifs"
-        data={safePassifs}
-        setData={setPassifs}
+        data={passifs}
+        onAdd={addPassif}
+        onEdit={editPassif}
+        onDelete={deletePassif}
         categories={FORTUNE_PASSIF_CATEGORIES}
         color="#EF4444"
         emptyText="Aucun passif enregistré."

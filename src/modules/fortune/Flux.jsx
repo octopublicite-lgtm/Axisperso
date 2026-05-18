@@ -1,4 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
+import { useAuth } from '../../context/AuthContext'
+import { supabase } from '../../lib/supabase'
 import { useLocalStorage } from '../../hooks/useLocalStorage'
 import { todayKey } from '../../utils/dates'
 import { FLUX_REVENU_CATEGORIES, FLUX_DEPENSE_CATEGORIES } from '../../utils/constants'
@@ -96,50 +98,96 @@ function AddForm({ fields, onSave, onCancel }) {
 }
 
 export default function Flux() {
+  const { user } = useAuth()
   const [monthOffset, setMonthOffset] = useState(0)
   const monthKey = getMonthKey(monthOffset)
-  const storageKey = `axislife_flux_${monthKey}`
-  const [data, setData] = useLocalStorage(storageKey, { revenus: [], depenses: [], creances: [] })
+
+  const [revenus, setRevenus] = useState([])
+  const [depenses, setDepenses] = useState([])
+  const [creances, setCreances] = useLocalStorage(`axislife_creances_${monthKey}`, [])
 
   const [showRevenuForm, setShowRevenuForm] = useState(false)
   const [showDepenseForm, setShowDepenseForm] = useState(false)
   const [showCreanceForm, setShowCreanceForm] = useState(false)
 
-  // Seed mai 2026 on first load
-  const seedKey = 'axislife_flux_2026-05'
+  // Load revenus and depenses from Supabase for this month
   useEffect(() => {
-    if (!localStorage.getItem(seedKey)) {
-      const seed = {
-        revenus: [
-          { id: uuidv4(), source: 'Black Version Parfums', categorie: '🏪 Revenus business', montant: 12000, frequence: 'Mensuel', date: '2026-05-01' },
-          { id: uuidv4(), source: 'OctoPub',               categorie: '🏪 Revenus business', montant: 6500,  frequence: 'Mensuel', date: '2026-05-01' },
-        ],
-        depenses: [],
-        creances: [],
-      }
-      localStorage.setItem(seedKey, JSON.stringify(seed))
+    if (!user || !supabase) return
+    const load = async () => {
+      const { data: rev, error: revErr } = await supabase
+        .from('flux_revenus')
+        .select('*')
+        .eq('user_id', user.id)
+        .gte('date', monthKey + '-01')
+        .lte('date', monthKey + '-31')
+      if (revErr) console.error('[Flux] revenus error:', revErr.message)
+      else setRevenus(rev ?? [])
+
+      const { data: dep, error: depErr } = await supabase
+        .from('flux_depenses')
+        .select('*')
+        .eq('user_id', user.id)
+        .gte('date', monthKey + '-01')
+        .lte('date', monthKey + '-31')
+      if (depErr) console.error('[Flux] depenses error:', depErr.message)
+      else setDepenses(dep ?? [])
     }
-  }, []) // eslint-disable-line
+    load()
+  }, [user, monthKey])
 
-  const safeData = { revenus: data?.revenus ?? [], depenses: data?.depenses ?? [], creances: data?.creances ?? [] }
+  async function addRevenu(f) {
+    if (!supabase || !user?.id) return
+    const { data, error } = await supabase
+      .from('flux_revenus')
+      .insert({ user_id: user.id, source: f.source, categorie: f.categorie, montant: Number(f.montant), frequence: f.frequence, date: f.date })
+      .select('*')
+      .single()
+    if (error) { console.error('[addRevenu] error:', error.message); return }
+    setRevenus((prev) => [...prev, data])
+  }
 
-  const totalRevenus  = safeData.revenus.reduce((s, r) => s + Number(r.montant), 0)
-  const totalDepenses = safeData.depenses.reduce((s, d) => s + Number(d.montant), 0)
+  async function deleteRevenu(id) {
+    if (!supabase || !user?.id) return
+    const { error } = await supabase.from('flux_revenus').delete().eq('id', id)
+    if (error) { console.error('[deleteRevenu] error:', error.message); return }
+    setRevenus((prev) => prev.filter((r) => r.id !== id))
+  }
+
+  async function addDepense(f) {
+    if (!supabase || !user?.id) return
+    const { data, error } = await supabase
+      .from('flux_depenses')
+      .insert({ user_id: user.id, libelle: f.libelle, categorie: f.categorie, montant: Number(f.montant), frequence: f.frequence, date: f.date })
+      .select('*')
+      .single()
+    if (error) { console.error('[addDepense] error:', error.message); return }
+    setDepenses((prev) => [...prev, data])
+  }
+
+  async function deleteDepense(id) {
+    if (!supabase || !user?.id) return
+    const { error } = await supabase.from('flux_depenses').delete().eq('id', id)
+    if (error) { console.error('[deleteDepense] error:', error.message); return }
+    setDepenses((prev) => prev.filter((d) => d.id !== id))
+  }
+
+  function addCreance(f) {
+    setCreances((prev) => [...(prev ?? []), { ...f, id: uuidv4(), statut: 'En attente' }])
+  }
+
+  function deleteCreance(id) {
+    setCreances((prev) => (prev ?? []).filter((c) => c.id !== id))
+  }
+
+  function toggleCreanceStatut(id) {
+    setCreances((prev) => (prev ?? []).map((c) => c.id === id ? { ...c, statut: c.statut === 'Réglé' ? 'En attente' : 'Réglé' } : c))
+  }
+
+  const totalRevenus  = revenus.reduce((s, r) => s + Number(r.montant), 0)
+  const totalDepenses = depenses.reduce((s, d) => s + Number(d.montant), 0)
   const solde         = totalRevenus - totalDepenses
   const tauxEpargne   = totalRevenus > 0 ? (solde / totalRevenus) * 100 : 0
-
-  function update(section, items) {
-    setData((prev) => ({ ...(prev ?? {}), [section]: items }))
-  }
-  function addItem(section, item) {
-    update(section, [...safeData[section], { ...item, id: uuidv4() }])
-  }
-  function deleteItem(section, id) {
-    update(section, safeData[section].filter((i) => i.id !== id))
-  }
-  function toggleCreanceStatut(id) {
-    update('creances', safeData.creances.map((c) => c.id === id ? { ...c, statut: c.statut === 'Réglé' ? 'En attente' : 'Réglé' } : c))
-  }
+  const safeCreances  = creances ?? []
 
   const revenuFields = {
     initial: EMPTY_REVENU,
@@ -208,17 +256,17 @@ export default function Flux() {
           {showRevenuForm && (
             <AddForm
               fields={revenuFields}
-              onSave={(f) => { addItem('revenus', f); setShowRevenuForm(false) }}
+              onSave={(f) => { addRevenu(f); setShowRevenuForm(false) }}
               onCancel={() => setShowRevenuForm(false)}
             />
           )}
-          {safeData.revenus.length === 0 && !showRevenuForm && (
+          {revenus.length === 0 && !showRevenuForm && (
             <p style={{ fontSize: 13, color: 'var(--text-3)', padding: 20 }}>Aucun revenu ce mois.</p>
           )}
-          {safeData.revenus.map((r) => (
-            <EntryRow key={r.id} item={r} label={r.source} onDelete={(id) => deleteItem('revenus', id)} />
+          {revenus.map((r) => (
+            <EntryRow key={r.id} item={r} label={r.source} onDelete={deleteRevenu} />
           ))}
-          {safeData.revenus.length > 0 && (
+          {revenus.length > 0 && (
             <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '10px 14px', background: 'color-mix(in srgb, #00C896 5%, white)' }}>
               <span style={{ fontSize: 14, fontWeight: 800, color: '#00C896' }}>Total : {fmt(totalRevenus)}</span>
             </div>
@@ -236,17 +284,17 @@ export default function Flux() {
           {showDepenseForm && (
             <AddForm
               fields={depenseFields}
-              onSave={(f) => { addItem('depenses', f); setShowDepenseForm(false) }}
+              onSave={(f) => { addDepense(f); setShowDepenseForm(false) }}
               onCancel={() => setShowDepenseForm(false)}
             />
           )}
-          {safeData.depenses.length === 0 && !showDepenseForm && (
+          {depenses.length === 0 && !showDepenseForm && (
             <p style={{ fontSize: 13, color: 'var(--text-3)', padding: 20 }}>Aucune dépense ce mois.</p>
           )}
-          {safeData.depenses.map((d) => (
-            <EntryRow key={d.id} item={d} label={d.libelle} onDelete={(id) => deleteItem('depenses', id)} />
+          {depenses.map((d) => (
+            <EntryRow key={d.id} item={d} label={d.libelle} onDelete={deleteDepense} />
           ))}
-          {safeData.depenses.length > 0 && (
+          {depenses.length > 0 && (
             <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '10px 14px', background: 'color-mix(in srgb, #EF4444 5%, white)' }}>
               <span style={{ fontSize: 14, fontWeight: 800, color: '#EF4444' }}>Total : {fmt(totalDepenses)}</span>
             </div>
@@ -264,15 +312,15 @@ export default function Flux() {
           {showCreanceForm && (
             <AddForm
               fields={creanceFields}
-              onSave={(f) => { addItem('creances', { ...f, statut: 'En attente' }); setShowCreanceForm(false) }}
+              onSave={(f) => { addCreance(f); setShowCreanceForm(false) }}
               onCancel={() => setShowCreanceForm(false)}
             />
           )}
-          {safeData.creances.length === 0 && !showCreanceForm && (
+          {safeCreances.length === 0 && !showCreanceForm && (
             <p style={{ fontSize: 13, color: 'var(--text-3)', padding: 20 }}>Aucune créance.</p>
           )}
-          {safeData.creances.map((c) => (
-            <EntryRow key={c.id} item={c} label={`${c.description} (${c.personne})`} onDelete={(id) => deleteItem('creances', id)} onToggleStatut={toggleCreanceStatut} />
+          {safeCreances.map((c) => (
+            <EntryRow key={c.id} item={c} label={`${c.description} (${c.personne})`} onDelete={deleteCreance} onToggleStatut={toggleCreanceStatut} />
           ))}
         </div>
       </div>
