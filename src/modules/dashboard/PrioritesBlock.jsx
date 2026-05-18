@@ -1,13 +1,41 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useLocalStorage } from '../../hooks/useLocalStorage'
+import { useAuth } from '../../context/AuthContext'
+import { push, pull } from '../../lib/cloudSync'
 import { todayKey } from '../../utils/dates'
 import { Plus, Trash2 } from 'lucide-react'
 import { v4 as uuidv4 } from 'uuid'
 
 export default function PrioritesBlock() {
-  const key = `priorites_${todayKey()}`
-  const [priorites, setPriorities] = useLocalStorage(key, [])
+  const { session } = useAuth()
+  const userId = session?.user?.id
+  const today = todayKey()
+  const [allPriorities, setAllPriorities] = useLocalStorage('all_priorites', {})
   const [input, setInput] = useState('')
+  const mounted = useRef(false)
+
+  // Load from Supabase on login
+  useEffect(() => {
+    if (!userId) return
+    pull(userId, 'priorites').then((data) => {
+      if (data && typeof data === 'object') setAllPriorities(data)
+    })
+  }, [userId]) // eslint-disable-line
+
+  // Push to Supabase on change
+  useEffect(() => {
+    if (!mounted.current) { mounted.current = true; return }
+    push(userId, 'priorites', allPriorities)
+  }, [allPriorities]) // eslint-disable-line
+
+  const priorites = allPriorities[today] ?? []
+  const setPriorities = (updater) => {
+    setAllPriorities((prev) => {
+      const current = prev[today] ?? []
+      const next = typeof updater === 'function' ? updater(current) : updater
+      return { ...prev, [today]: next }
+    })
+  }
 
   const add = () => {
     if (!input.trim() || priorites.length >= 3) return

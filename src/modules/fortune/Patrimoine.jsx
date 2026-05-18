@@ -1,5 +1,7 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useLocalStorage } from '../../hooks/useLocalStorage'
+import { useAuth } from '../../context/AuthContext'
+import { push, pull } from '../../lib/cloudSync'
 import { todayKey } from '../../utils/dates'
 import { FORTUNE_ACTIF_CATEGORIES, FORTUNE_PASSIF_CATEGORIES, SEED_FORTUNE_ACTIFS, SEED_FORTUNE_PASSIFS } from '../../utils/constants'
 import { Trash2, Pencil, ChevronDown, ChevronRight, Plus, Check, X } from 'lucide-react'
@@ -197,8 +199,12 @@ function Section({ title, data, setData, categories, color, emptyText }) {
 }
 
 export default function Patrimoine() {
-  const [actifs, setActifs] = useLocalStorage('axislife_fortune_actifs', null)
-  const [passifs, setPassifs] = useLocalStorage('axislife_fortune_passifs', null)
+  const { session } = useAuth()
+  const userId = session?.user?.id
+  const [actifs, setActifs] = useLocalStorage('fortune_actifs', null)
+  const [passifs, setPassifs] = useLocalStorage('fortune_passifs', null)
+  const actifsMounted = useRef(false)
+  const passifsMounted = useRef(false)
 
   // Seed on first load
   useEffect(() => {
@@ -209,6 +215,29 @@ export default function Patrimoine() {
       setPassifs(SEED_FORTUNE_PASSIFS.map((p) => ({ ...p, id: uuidv4(), date_maj: todayKey() })))
     }
   }, []) // eslint-disable-line
+
+  // Load from Supabase on login
+  useEffect(() => {
+    if (!userId) return
+    pull(userId, 'fortune_actifs').then((data) => {
+      if (Array.isArray(data) && data.length > 0) setActifs(data)
+    })
+    pull(userId, 'fortune_passifs').then((data) => {
+      if (Array.isArray(data) && data.length > 0) setPassifs(data)
+    })
+  }, [userId]) // eslint-disable-line
+
+  // Push actifs to Supabase on change
+  useEffect(() => {
+    if (!actifsMounted.current) { actifsMounted.current = true; return }
+    push(userId, 'fortune_actifs', actifs)
+  }, [actifs]) // eslint-disable-line
+
+  // Push passifs to Supabase on change
+  useEffect(() => {
+    if (!passifsMounted.current) { passifsMounted.current = true; return }
+    push(userId, 'fortune_passifs', passifs)
+  }, [passifs]) // eslint-disable-line
 
   const safeActifs = actifs ?? []
   const safePassifs = passifs ?? []

@@ -1,11 +1,37 @@
-import { useCallback } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { useLocalStorage } from './useLocalStorage'
+import { push, pull } from '../lib/cloudSync'
 import { todayKey } from '../utils/dates'
 import { v4 as uuidv4 } from 'uuid'
 
-export function useHabitudes() {
+export function useHabitudes(userId) {
   const [habitudes, setHabitudes] = useLocalStorage('habitudes', [])
   const [logs, setLogs] = useLocalStorage('habitudes_logs', {})
+  const habitudesMounted = useRef(false)
+  const logsMounted = useRef(false)
+
+  // Load from Supabase on login
+  useEffect(() => {
+    if (!userId) return
+    pull(userId, 'habitudes').then((data) => {
+      if (Array.isArray(data) && data.length > 0) setHabitudes(data)
+    })
+    pull(userId, 'habitude_logs').then((data) => {
+      if (data && typeof data === 'object' && !Array.isArray(data)) setLogs(data)
+    })
+  }, [userId]) // eslint-disable-line
+
+  // Push habitudes to Supabase on change
+  useEffect(() => {
+    if (!habitudesMounted.current) { habitudesMounted.current = true; return }
+    push(userId, 'habitudes', habitudes)
+  }, [habitudes]) // eslint-disable-line
+
+  // Push logs to Supabase on change
+  useEffect(() => {
+    if (!logsMounted.current) { logsMounted.current = true; return }
+    push(userId, 'habitude_logs', logs)
+  }, [logs]) // eslint-disable-line
 
   const addHabitude = useCallback((data) => {
     setHabitudes((prev) => [...prev, { ...data, id: uuidv4() }])

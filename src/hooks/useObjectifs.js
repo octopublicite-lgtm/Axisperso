@@ -1,9 +1,25 @@
-import { useCallback } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { useLocalStorage } from './useLocalStorage'
+import { push, pull } from '../lib/cloudSync'
 import { v4 as uuidv4 } from 'uuid'
 
-export function useObjectifs() {
+export function useObjectifs(userId) {
   const [objectifs, setObjectifs] = useLocalStorage('objectifs', [])
+  const mounted = useRef(false)
+
+  // Load from Supabase on login
+  useEffect(() => {
+    if (!userId) return
+    pull(userId, 'objectifs').then((data) => {
+      if (Array.isArray(data) && data.length > 0) setObjectifs(data)
+    })
+  }, [userId]) // eslint-disable-line
+
+  // Push to Supabase on every change (skip initial render)
+  useEffect(() => {
+    if (!mounted.current) { mounted.current = true; return }
+    push(userId, 'objectifs', objectifs)
+  }, [objectifs]) // eslint-disable-line
 
   const addObjectif = useCallback((data) => {
     const now = new Date().toISOString()

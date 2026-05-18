@@ -21,9 +21,10 @@ export function AppProvider({ children }) {
     domainesActifs: ALL_DOMAIN_IDS,
   })
 
+  const userId = session?.user?.id
   const [toasts, setToasts] = useState([])
-  const objectifsHook = useObjectifs()
-  const habitudesHook = useHabitudes()
+  const objectifsHook = useObjectifs(userId)
+  const habitudesHook = useHabitudes(userId)
   const planningHook = usePlanning()
 
   // Migrate mindset/lifestyle → mindstyle (one-time)
@@ -61,6 +62,21 @@ export function AppProvider({ children }) {
     }
     setMigrated(true)
   }, [migrated, setMigrated])
+
+  // Migration: fix double-prefixed fortune keys (axislife_axislife_* → axislife_*)
+  const [migratedFortuneKeys, setMigratedFortuneKeys] = useLocalStorage('migrated_fortune_keys', false)
+  useEffect(() => {
+    if (migratedFortuneKeys) return
+    const pairs = [['axislife_axislife_fortune_actifs', 'axislife_fortune_actifs'], ['axislife_axislife_fortune_passifs', 'axislife_fortune_passifs']]
+    pairs.forEach(([oldKey, newKey]) => {
+      const raw = localStorage.getItem(oldKey)
+      if (raw && !localStorage.getItem(newKey)) {
+        localStorage.setItem(newKey, raw)
+        localStorage.removeItem(oldKey)
+      }
+    })
+    setMigratedFortuneKeys(true)
+  }, [migratedFortuneKeys, setMigratedFortuneKeys])
 
   // Migration: add 6 new domain IDs to existing domainesActifs arrays
   const [migratedDomainsV2, setMigratedDomainsV2] = useLocalStorage('migrated_domains_v2', false)

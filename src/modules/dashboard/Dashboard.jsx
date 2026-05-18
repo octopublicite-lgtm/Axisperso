@@ -6,12 +6,13 @@ import HabitudesBlock from './HabitudesBlock'
 import { formatDateFR } from '../../utils/dates'
 import { useApp } from '../../context/AppContext'
 import { getLast7Days, todayKey } from '../../utils/dates'
-import { useLocalStorage } from '../../hooks/useLocalStorage'
 
 function useWeekScore() {
   const days = getLast7Days()
+  let allPriorities = {}
+  try { allPriorities = JSON.parse(localStorage.getItem('axislife_all_priorites') || '{}') } catch {}
   const scores = days.map(day => {
-    const [p] = [JSON.parse(localStorage.getItem(`priorites_${day}`) || '[]')]
+    const p = allPriorities[day] ?? []
     if (!p.length) return null
     return Math.round((p.filter(x => x.done).length / p.length) * 100)
   }).filter(x => x !== null)
