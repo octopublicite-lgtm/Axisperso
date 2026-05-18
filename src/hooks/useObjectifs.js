@@ -1,21 +1,35 @@
-import { useCallback, useEffect, useRef } from 'react'
-import { useLocalStorage } from './useLocalStorage'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { push, pull } from '../lib/cloudSync'
 import { v4 as uuidv4 } from 'uuid'
 
+function legacyLS(key) {
+  try { return JSON.parse(localStorage.getItem(key) || 'null') } catch { return null }
+}
+
 export function useObjectifs(userId) {
-  const [objectifs, setObjectifs] = useLocalStorage('objectifs', [])
+  const [objectifs, setObjectifs] = useState([])
   const mounted = useRef(false)
 
-  // Load from Supabase on login
+  // Load from Supabase on login; fall back to localStorage for initial migration
   useEffect(() => {
     if (!userId) return
     pull(userId, 'objectifs').then((data) => {
-      if (Array.isArray(data) && data.length > 0) setObjectifs(data)
+      if (Array.isArray(data) && data.length > 0) {
+        setObjectifs(data)
+      } else {
+        const legacy = legacyLS('axislife_objectifs')
+        if (Array.isArray(legacy) && legacy.length > 0) {
+          setObjectifs(legacy)
+          push(userId, 'objectifs', legacy)
+        }
+      }
+    }).catch(() => {
+      const legacy = legacyLS('axislife_objectifs')
+      if (Array.isArray(legacy) && legacy.length > 0) setObjectifs(legacy)
     })
   }, [userId]) // eslint-disable-line
 
-  // Push to Supabase on every change (skip initial render)
+  // Push to Supabase whenever objectifs change (skip first render)
   useEffect(() => {
     if (!mounted.current) { mounted.current = true; return }
     push(userId, 'objectifs', objectifs)

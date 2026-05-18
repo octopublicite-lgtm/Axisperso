@@ -1,23 +1,49 @@
-import { useCallback, useEffect, useRef } from 'react'
-import { useLocalStorage } from './useLocalStorage'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { push, pull } from '../lib/cloudSync'
 import { todayKey } from '../utils/dates'
 import { v4 as uuidv4 } from 'uuid'
 
+function legacyLS(key) {
+  try { return JSON.parse(localStorage.getItem(key) || 'null') } catch { return null }
+}
+
 export function useHabitudes(userId) {
-  const [habitudes, setHabitudes] = useLocalStorage('habitudes', [])
-  const [logs, setLogs] = useLocalStorage('habitudes_logs', {})
+  const [habitudes, setHabitudes] = useState([])
+  const [logs, setLogs] = useState({})
   const habitudesMounted = useRef(false)
   const logsMounted = useRef(false)
 
-  // Load from Supabase on login
+  // Load from Supabase on login; fall back to localStorage for initial migration
   useEffect(() => {
     if (!userId) return
     pull(userId, 'habitudes').then((data) => {
-      if (Array.isArray(data) && data.length > 0) setHabitudes(data)
+      if (Array.isArray(data) && data.length > 0) {
+        setHabitudes(data)
+      } else {
+        const legacy = legacyLS('axislife_habitudes')
+        if (Array.isArray(legacy) && legacy.length > 0) {
+          setHabitudes(legacy)
+          push(userId, 'habitudes', legacy)
+        }
+      }
+    }).catch(() => {
+      const legacy = legacyLS('axislife_habitudes')
+      if (Array.isArray(legacy) && legacy.length > 0) setHabitudes(legacy)
     })
+
     pull(userId, 'habitude_logs').then((data) => {
-      if (data && typeof data === 'object' && !Array.isArray(data)) setLogs(data)
+      if (data && typeof data === 'object' && !Array.isArray(data)) {
+        setLogs(data)
+      } else {
+        const legacy = legacyLS('axislife_habitudes_logs')
+        if (legacy && typeof legacy === 'object' && !Array.isArray(legacy)) {
+          setLogs(legacy)
+          push(userId, 'habitude_logs', legacy)
+        }
+      }
+    }).catch(() => {
+      const legacy = legacyLS('axislife_habitudes_logs')
+      if (legacy && typeof legacy === 'object') setLogs(legacy)
     })
   }, [userId]) // eslint-disable-line
 

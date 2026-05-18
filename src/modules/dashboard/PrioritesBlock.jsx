@@ -1,24 +1,38 @@
 import { useState, useEffect, useRef } from 'react'
-import { useLocalStorage } from '../../hooks/useLocalStorage'
 import { useAuth } from '../../context/AuthContext'
 import { push, pull } from '../../lib/cloudSync'
 import { todayKey } from '../../utils/dates'
 import { Plus, Trash2 } from 'lucide-react'
 import { v4 as uuidv4 } from 'uuid'
 
+function legacyLS(key) {
+  try { return JSON.parse(localStorage.getItem(key) || 'null') } catch { return null }
+}
+
 export default function PrioritesBlock() {
   const { session } = useAuth()
   const userId = session?.user?.id
   const today = todayKey()
-  const [allPriorities, setAllPriorities] = useLocalStorage('all_priorites', {})
+  const [allPriorities, setAllPriorities] = useState({})
   const [input, setInput] = useState('')
   const mounted = useRef(false)
 
-  // Load from Supabase on login
+  // Load from Supabase on login; fall back to localStorage for initial migration
   useEffect(() => {
     if (!userId) return
     pull(userId, 'priorites').then((data) => {
-      if (data && typeof data === 'object') setAllPriorities(data)
+      if (data && typeof data === 'object') {
+        setAllPriorities(data)
+      } else {
+        const legacy = legacyLS('axislife_all_priorites')
+        if (legacy && typeof legacy === 'object') {
+          setAllPriorities(legacy)
+          push(userId, 'priorites', legacy)
+        }
+      }
+    }).catch(() => {
+      const legacy = legacyLS('axislife_all_priorites')
+      if (legacy && typeof legacy === 'object') setAllPriorities(legacy)
     })
   }, [userId]) // eslint-disable-line
 

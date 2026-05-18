@@ -1,22 +1,36 @@
-import { useEffect, useRef } from 'react'
-import { useLocalStorage } from '../../hooks/useLocalStorage'
+import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { push, pull } from '../../lib/cloudSync'
 import { todayKey } from '../../utils/dates'
 import { METEO_OPTIONS } from '../../utils/constants'
 
+function legacyLS(key) {
+  try { return JSON.parse(localStorage.getItem(key) || 'null') } catch { return null }
+}
+
 export default function MeteoBlock() {
   const { session } = useAuth()
   const userId = session?.user?.id
   const today = todayKey()
-  const [allMeteo, setAllMeteo] = useLocalStorage('all_meteo', {})
+  const [allMeteo, setAllMeteo] = useState({})
   const mounted = useRef(false)
 
-  // Load from Supabase on login
+  // Load from Supabase on login; fall back to localStorage for initial migration
   useEffect(() => {
     if (!userId) return
     pull(userId, 'meteo').then((data) => {
-      if (data && typeof data === 'object') setAllMeteo(data)
+      if (data && typeof data === 'object') {
+        setAllMeteo(data)
+      } else {
+        const legacy = legacyLS('axislife_all_meteo')
+        if (legacy && typeof legacy === 'object') {
+          setAllMeteo(legacy)
+          push(userId, 'meteo', legacy)
+        }
+      }
+    }).catch(() => {
+      const legacy = legacyLS('axislife_all_meteo')
+      if (legacy && typeof legacy === 'object') setAllMeteo(legacy)
     })
   }, [userId]) // eslint-disable-line
 

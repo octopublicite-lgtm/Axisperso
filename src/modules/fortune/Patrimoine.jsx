@@ -1,5 +1,4 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
-import { useLocalStorage } from '../../hooks/useLocalStorage'
 import { useAuth } from '../../context/AuthContext'
 import { push, pull } from '../../lib/cloudSync'
 import { todayKey } from '../../utils/dates'
@@ -201,29 +200,58 @@ function Section({ title, data, setData, categories, color, emptyText }) {
 export default function Patrimoine() {
   const { session } = useAuth()
   const userId = session?.user?.id
-  const [actifs, setActifs] = useLocalStorage('fortune_actifs', null)
-  const [passifs, setPassifs] = useLocalStorage('fortune_passifs', null)
+  const [actifs, setActifs] = useState(null)
+  const [passifs, setPassifs] = useState(null)
   const actifsMounted = useRef(false)
   const passifsMounted = useRef(false)
 
-  // Seed on first load
-  useEffect(() => {
-    if (actifs === null) {
-      setActifs(SEED_FORTUNE_ACTIFS.map((a) => ({ ...a, id: uuidv4(), date_maj: todayKey() })))
-    }
-    if (passifs === null) {
-      setPassifs(SEED_FORTUNE_PASSIFS.map((p) => ({ ...p, id: uuidv4(), date_maj: todayKey() })))
-    }
-  }, []) // eslint-disable-line
+  function legacyLS(key) {
+    try { return JSON.parse(localStorage.getItem(key) || 'null') } catch { return null }
+  }
 
-  // Load from Supabase on login
+  // Load from Supabase on login; fall back to localStorage, then seed
   useEffect(() => {
     if (!userId) return
     pull(userId, 'fortune_actifs').then((data) => {
-      if (Array.isArray(data) && data.length > 0) setActifs(data)
+      if (Array.isArray(data) && data.length > 0) {
+        setActifs(data)
+      } else {
+        const legacy = legacyLS('axislife_fortune_actifs')
+        if (Array.isArray(legacy) && legacy.length > 0) {
+          setActifs(legacy)
+          push(userId, 'fortune_actifs', legacy)
+        } else {
+          const seeded = SEED_FORTUNE_ACTIFS.map((a) => ({ ...a, id: uuidv4(), date_maj: todayKey() }))
+          setActifs(seeded)
+          push(userId, 'fortune_actifs', seeded)
+        }
+      }
+    }).catch(() => {
+      const legacy = legacyLS('axislife_fortune_actifs')
+      setActifs(Array.isArray(legacy) && legacy.length > 0
+        ? legacy
+        : SEED_FORTUNE_ACTIFS.map((a) => ({ ...a, id: uuidv4(), date_maj: todayKey() })))
     })
+
     pull(userId, 'fortune_passifs').then((data) => {
-      if (Array.isArray(data) && data.length > 0) setPassifs(data)
+      if (Array.isArray(data) && data.length > 0) {
+        setPassifs(data)
+      } else {
+        const legacy = legacyLS('axislife_fortune_passifs')
+        if (Array.isArray(legacy) && legacy.length > 0) {
+          setPassifs(legacy)
+          push(userId, 'fortune_passifs', legacy)
+        } else {
+          const seeded = SEED_FORTUNE_PASSIFS.map((p) => ({ ...p, id: uuidv4(), date_maj: todayKey() }))
+          setPassifs(seeded)
+          push(userId, 'fortune_passifs', seeded)
+        }
+      }
+    }).catch(() => {
+      const legacy = legacyLS('axislife_fortune_passifs')
+      setPassifs(Array.isArray(legacy) && legacy.length > 0
+        ? legacy
+        : SEED_FORTUNE_PASSIFS.map((p) => ({ ...p, id: uuidv4(), date_maj: todayKey() })))
     })
   }, [userId]) // eslint-disable-line
 

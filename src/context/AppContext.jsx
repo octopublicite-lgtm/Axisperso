@@ -144,6 +144,20 @@ export function AppProvider({ children }) {
     setToasts((prev) => prev.filter((t) => t.id !== id))
   }, [])
 
+  // On login, clear stale device-local data so Supabase is the source of truth
+  useEffect(() => {
+    if (!userId) return
+    const timer = setTimeout(() => {
+      const dataKeys = [
+        'axislife_objectifs', 'axislife_habitudes', 'axislife_habitudes_logs',
+        'axislife_fortune_actifs', 'axislife_fortune_passifs',
+        'axislife_all_meteo', 'axislife_all_priorites',
+      ]
+      dataKeys.forEach((k) => localStorage.removeItem(k))
+    }, 5000)
+    return () => clearTimeout(timer)
+  }, [userId])
+
   // Load active_domains from Supabase profile when session is available
   useEffect(() => {
     if (!session?.user?.id) return
