@@ -161,23 +161,31 @@ export function AppProvider({ children }) {
   // Load active_domains from Supabase profile when session is available
   useEffect(() => {
     if (!session?.user?.id || !supabase) return
-    try {
-      supabase.from('profiles').select('active_domains').eq('id', session.user.id).single()
-        .then(({ data }) => {
-          if (data?.active_domains) {
-            setSettings((prev) => ({ ...prev, domainesActifs: data.active_domains }))
-          }
-        })
-        .catch(() => {})
-    } catch {}
+    ;(async () => {
+      try {
+        const { data } = await supabase
+          .from('profiles')
+          .select('active_domains')
+          .eq('id', session.user.id)
+          .single()
+        if (data?.active_domains) {
+          setSettings((prev) => ({ ...prev, domainesActifs: data.active_domains }))
+        }
+      } catch {}
+    })()
   }, [session?.user?.id, setSettings])
 
   const saveActiveDomains = useCallback(async (ids) => {
     setSettings((prev) => ({ ...prev, domainesActifs: ids }))
     if (session?.user?.id && supabase) {
-      try {
-        supabase.from('profiles').upsert({ id: session.user.id, active_domains: ids }).catch(() => {})
-      } catch {}
+      ;(async () => {
+        try {
+          const { error } = await supabase
+            .from('profiles')
+            .upsert({ id: session.user.id, active_domains: ids })
+          if (error) console.error('[saveActiveDomains] profiles error:', error.message)
+        } catch {}
+      })()
     }
     addToast('Préférences sauvegardées')
   }, [session?.user?.id, addToast, setSettings])
