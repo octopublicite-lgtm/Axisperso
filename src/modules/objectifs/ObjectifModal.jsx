@@ -3,7 +3,7 @@ import Modal from '../../components/ui/Modal'
 import Input, { Textarea, Select } from '../../components/ui/Input'
 import Button from '../../components/ui/Button'
 import { useApp } from '../../context/AppContext'
-import { DOMAINS, HORIZONS, STATUTS } from '../../utils/constants'
+import { DOMAINS, HORIZONS, HORIZON_LABEL, STATUTS } from '../../utils/constants'
 import { Plus, X } from 'lucide-react'
 import { v4 as uuidv4 } from 'uuid'
 
@@ -11,7 +11,7 @@ const EMPTY = {
   domaine: 'business',
   titre: '',
   description: '',
-  horizon: '6 mois',
+  horizon: '6_mois',
   status: 'En cours',
   progress: 0,
   kpi: '',
@@ -72,7 +72,7 @@ export default function ObjectifModal({ isOpen, onClose, editTarget, defaultDoma
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 12 }}>
           <Select label="Horizon" value={form.horizon} onChange={(e) => set('horizon', e.target.value)}>
-            {HORIZONS.map((h) => <option key={h} value={h}>{h}</option>)}
+            {HORIZONS.map((h) => <option key={h} value={h}>{HORIZON_LABEL[h] ?? h}</option>)}
           </Select>
           <Select label="Statut" value={form.status} onChange={(e) => set('status', e.target.value)}>
             {STATUTS.map((s) => <option key={s} value={s}>{s}</option>)}

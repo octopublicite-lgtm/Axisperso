@@ -3,7 +3,7 @@ import Badge from '../../components/ui/Badge'
 import ProgressBar from '../../components/ui/ProgressBar'
 import { useApp } from '../../context/AppContext'
 import { getDomainColor, getDomainLight } from '../../utils/colors'
-import { DOMAINS } from '../../utils/constants'
+import { DOMAINS, HORIZON_LABEL } from '../../utils/constants'
 import { Pencil, Trash2 } from 'lucide-react'
 
 const STATUT_COLORS = {
@@ -57,7 +57,7 @@ export default function ObjectifCard({ objectif: o, onEdit }) {
       <div className="badges-row">
         <Badge color={color} bg={light}>{domain?.icon} {domain?.label}</Badge>
         <Badge color={statut.color} bg={statut.bg}>{o.status}</Badge>
-        <Badge color="#666" bg="#EEEEEE">{o.horizon}</Badge>
+        <Badge color="#666" bg="#EEEEEE">{HORIZON_LABEL[o.horizon] ?? o.horizon}</Badge>
       </div>
 
       <div className="progress-row">

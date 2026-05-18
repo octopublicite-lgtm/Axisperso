@@ -3,11 +3,12 @@ import Modal from '../../components/ui/Modal'
 import Input, { Textarea, Select } from '../../components/ui/Input'
 import Button from '../../components/ui/Button'
 import { useApp } from '../../context/AppContext'
+import { FREQUENCE_LABEL } from '../../utils/constants'
 
 const ICONS = ['📖', '🏃', '🙏', '💧', '✍️', '🧘', '💪', '🌙', '⏰', '🥗', '📵', '🎯']
-const FREQ_OPTIONS = ['Quotidien', 'Hebdomadaire', '3x/semaine', '5x/semaine']
+const FREQ_OPTIONS = ['quotidien', 'hebdomadaire', '3x_semaine', '5x_semaine']
 
-const EMPTY = { titre: '', description: '', frequence: 'Quotidien', icon: '📖', actif: true }
+const EMPTY = { titre: '', description: '', frequence: 'quotidien', icon: '📖', actif: true }
 
 export default function HabitudeModal({ isOpen, onClose, editTarget, domaine }) {
   const { addHabitude, updateHabitude, addToast } = useApp()
@@ -18,7 +19,7 @@ export default function HabitudeModal({ isOpen, onClose, editTarget, domaine }) 
       setForm({
         titre: editTarget.titre || editTarget.nom || '',
         description: editTarget.description || '',
-        frequence: editTarget.frequence || 'Quotidien',
+        frequence: editTarget.frequence || 'quotidien',
         icon: editTarget.icon || '📖',
         actif: editTarget.actif !== false,
       })
@@ -58,7 +59,7 @@ export default function HabitudeModal({ isOpen, onClose, editTarget, domaine }) 
           placeholder="Détails, contexte..."
         />
         <Select label="Fréquence" value={form.frequence} onChange={(e) => set('frequence', e.target.value)}>
-          {FREQ_OPTIONS.map((f) => <option key={f} value={f}>{f}</option>)}
+          {FREQ_OPTIONS.map((f) => <option key={f} value={f}>{FREQUENCE_LABEL[f] ?? f}</option>)}
         </Select>
 
         <div>

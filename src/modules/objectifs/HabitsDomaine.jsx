@@ -4,6 +4,7 @@ import { getDomainColor } from '../../utils/colors'
 import { getStreakColor } from '../../utils/colors'
 import { Plus, Pencil, Trash2 } from 'lucide-react'
 import HabitudeModal from './HabitudeModal'
+import { FREQUENCE_LABEL } from '../../utils/constants'
 
 export default function HabitsDomaine({ domaine }) {
   const { habitudes, deleteHabitude, getStreak, addToast } = useApp()
@@ -106,7 +107,7 @@ function HabitudeCard({ habitude: h, color, streak, onEdit, onDelete }) {
           className="text-[10px] font-bold px-1.5 py-0.5 rounded-full truncate"
           style={{ background: color + '22', color }}
         >
-          {h.frequence}
+          {FREQUENCE_LABEL[h.frequence] ?? h.frequence}
         </span>
         {streak > 0 && (
           <span className="text-[10px] font-bold flex-shrink-0" style={{ color: getStreakColor(streak) }}>

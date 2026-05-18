@@ -11,12 +11,12 @@ import { Plus, Trash2, ChevronDown, ChevronRight, ChevronLeft } from 'lucide-rea
 const DAY_LABELS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
 
 const SECTIONS = [
-  { id: 'quotidien', label: '📅 Quotidiennes',             freqs: ['Quotidien'] },
-  { id: 'semaine',   label: '🔄 Plusieurs fois / semaine', freqs: ['3x/semaine', '5x/semaine'] },
-  { id: 'hebdo',     label: '📆 Hebdomadaires',            freqs: ['Hebdomadaire'] },
+  { id: 'quotidien', label: '📅 Quotidiennes',             freqs: ['quotidien'] },
+  { id: 'semaine',   label: '🔄 Plusieurs fois / semaine', freqs: ['3x_semaine', '5x_semaine'] },
+  { id: 'hebdo',     label: '📆 Hebdomadaires',            freqs: ['hebdomadaire'] },
 ]
 
-const EMPTY = { titre: '', icon: '✅', domaine: 'mindstyle', frequence: 'Quotidien' }
+const EMPTY = { titre: '', icon: '✅', domaine: 'mindstyle', frequence: 'quotidien' }
 
 function DayDots({ h, weekDays, today, isLogged, onToggle, readOnly }) {
   const color = getDomainColor(h.domaine)
@@ -152,10 +152,10 @@ export default function HabitudesTab() {
                 {DOMAINS.map((d) => <option key={d.id} value={d.id}>{d.icon} {d.label}</option>)}
               </select>
               <select value={form.frequence} onChange={(e) => set('frequence', e.target.value)} className="input">
-                <option value="Quotidien">Quotidien</option>
-                <option value="3x/semaine">3x/semaine</option>
-                <option value="5x/semaine">5x/semaine</option>
-                <option value="Hebdomadaire">Hebdomadaire</option>
+                <option value="quotidien">Quotidien</option>
+                <option value="3x_semaine">3x / semaine</option>
+                <option value="5x_semaine">5x / semaine</option>
+                <option value="hebdomadaire">Hebdomadaire</option>
               </select>
             </div>
             <div style={{ display: 'flex', gap: 8 }}>

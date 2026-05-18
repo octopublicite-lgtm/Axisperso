@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import PageWrapper from '../../components/layout/PageWrapper'
 import { useApp } from '../../context/AppContext'
-import { DOMAINS, HORIZONS, STATUTS } from '../../utils/constants'
+import { DOMAINS, HORIZONS, HORIZON_LABEL, STATUTS } from '../../utils/constants'
 import { getDomainColor, getDomainLight } from '../../utils/colors'
 import ObjectifCard from './ObjectifCard'
 import ObjectifModal from './ObjectifModal'
@@ -174,7 +174,7 @@ export default function Objectifs() {
                 className={`pill${filterHorizon === h ? ' active' : ''}`}
                 onClick={() => setFilterHorizon(h)}
               >
-                {h}
+                {HORIZON_LABEL[h] ?? h}
               </div>
             ))}
           </div>

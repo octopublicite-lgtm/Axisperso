@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useApp } from '../../context/AppContext'
-import { getDomainColor } from '../../utils/colors'
-import { getStreakColor } from '../../utils/colors'
+import { getDomainColor, getStreakColor } from '../../utils/colors'
+import { FREQUENCE_LABEL } from '../../utils/constants'
 import ProgressBar from '../../components/ui/ProgressBar'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 
@@ -109,7 +109,7 @@ export default function SuiviDomaine({ domaine }) {
                   <span className="text-xl">{h.icon}</span>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-primary truncate">{name}</p>
-                    <p className="text-xs text-muted">{h.frequence}</p>
+                    <p className="text-xs text-muted">{FREQUENCE_LABEL[h.frequence] ?? h.frequence}</p>
                   </div>
                   <div className="text-right flex-shrink-0">
                     {streak > 0 && (

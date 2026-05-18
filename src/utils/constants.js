@@ -82,7 +82,19 @@ export const SEED_FORTUNE_PASSIFS = [
   { nom: 'Crédit téléphone', categorie: '💳 Dettes courantes', valeur: 2400 },
 ]
 
-export const HORIZONS = ['90 jours', '6 mois', '1 an', '3 ans']
+export const HORIZONS = ['90_jours', '6_mois', '1_an', '3_ans']
+export const HORIZON_LABEL = {
+  '90_jours': '90 jours',
+  '6_mois':   '6 mois',
+  '1_an':     '1 an',
+  '3_ans':    '3 ans',
+}
+export const FREQUENCE_LABEL = {
+  'quotidien':    'Quotidien',
+  'hebdomadaire': 'Hebdomadaire',
+  '3x_semaine':   '3x / semaine',
+  '5x_semaine':   '5x / semaine',
+}
 export const STATUTS = ['En cours', 'Atteint', 'Suspendu']
 
 export const METEO_OPTIONS = [

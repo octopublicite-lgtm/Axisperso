@@ -2,7 +2,7 @@ import ProgressBar from '../../components/ui/ProgressBar'
 import Badge from '../../components/ui/Badge'
 import { useApp } from '../../context/AppContext'
 import { getDomainColor, getDomainLight } from '../../utils/colors'
-import { DOMAINS } from '../../utils/constants'
+import { DOMAINS, HORIZON_LABEL } from '../../utils/constants'
 import { useNavigate } from 'react-router-dom'
 
 export default function ObjectifsBlock() {
@@ -40,7 +40,7 @@ export default function ObjectifsBlock() {
             <div className="title">{o.titre}</div>
             <div className="badges-row">
               <Badge color={color} bg={light}>{domain?.icon} {domain?.label}</Badge>
-              <Badge color="#666" bg="#EEEEEE">{o.horizon}</Badge>
+              <Badge color="#666" bg="#EEEEEE">{HORIZON_LABEL[o.horizon] ?? o.horizon}</Badge>
             </div>
             <div className="progress-row">
               <ProgressBar value={o.progress} color={color} />

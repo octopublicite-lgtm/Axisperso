@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useApp } from '../../context/AppContext'
 import { useLocalStorage } from '../../hooks/useLocalStorage'
-import { DOMAINS } from '../../utils/constants'
+import { DOMAINS, HORIZON_LABEL } from '../../utils/constants'
 import { getDomainColor } from '../../utils/colors'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import PageWrapper from '../../components/layout/PageWrapper'
@@ -67,7 +67,7 @@ export default function ObjectifDetail() {
           {o.description && <p className="page-subtitle">{o.description}</p>}
           <div style={{ display: 'flex', gap: 6, marginTop: 14, flexWrap: 'wrap' }}>
             <Badge color={color} bg={light}>{domain?.icon} {domain?.label}</Badge>
-            <Badge color="#666" bg="#EEEEEE">{o.horizon}</Badge>
+            <Badge color="#666" bg="#EEEEEE">{HORIZON_LABEL[o.horizon] ?? o.horizon}</Badge>
             <Badge color={statut.color} bg={statut.bg}>{o.status}</Badge>
           </div>
         </div>
@@ -94,7 +94,7 @@ export default function ObjectifDetail() {
         </div>
         <div className="meta-card">
           <div className="label">Horizon</div>
-          <div className="value">{o.horizon || '—'}</div>
+          <div className="value">{HORIZON_LABEL[o.horizon] ?? o.horizon ?? '—'}</div>
           <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 6 }}>{o.status}</div>
         </div>
       </div>
