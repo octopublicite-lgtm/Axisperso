@@ -16,6 +16,21 @@ const EMPTY = {
   progress: 0,
   kpi: '',
   milestones: [],
+  date_debut: '',
+  date_fin: '',
+}
+
+function calcDateFin(dateDebut, horizon) {
+  if (!dateDebut) return ''
+  const d = new Date(dateDebut + 'T00:00:00')
+  switch (horizon) {
+    case '90_jours': d.setDate(d.getDate() + 90); break
+    case '6_mois':   d.setMonth(d.getMonth() + 6); break
+    case '1_an':     d.setFullYear(d.getFullYear() + 1); break
+    case '3_ans':    d.setFullYear(d.getFullYear() + 3); break
+    default: return ''
+  }
+  return d.toISOString().split('T')[0]
 }
 
 export default function ObjectifModal({ isOpen, onClose, editTarget, defaultDomain }) {
@@ -27,15 +42,34 @@ export default function ObjectifModal({ isOpen, onClose, editTarget, defaultDoma
   const [milestoneInput, setMilestoneInput] = useState('')
 
   useEffect(() => {
+    const today = new Date().toISOString().split('T')[0]
     if (editTarget) {
-      setForm(editTarget)
+      setForm({
+        date_debut: today,
+        date_fin: calcDateFin(today, editTarget.horizon ?? '6_mois'),
+        ...editTarget,
+      })
     } else {
-      setForm({ ...EMPTY, domaine: defaultDomain ?? 'business' })
+      setForm({
+        ...EMPTY,
+        domaine: defaultDomain ?? 'business',
+        date_debut: today,
+        date_fin: calcDateFin(today, EMPTY.horizon),
+      })
     }
     setMilestoneInput('')
   }, [editTarget, defaultDomain, isOpen])
 
   function set(field, value) { setForm((prev) => ({ ...prev, [field]: value })) }
+
+  function handleHorizonChange(e) {
+    const h = e.target.value
+    setForm((prev) => ({
+      ...prev,
+      horizon: h,
+      date_fin: calcDateFin(prev.date_debut || new Date().toISOString().split('T')[0], h),
+    }))
+  }
 
   function addMilestone() {
     if (!milestoneInput.trim()) return
@@ -71,12 +105,17 @@ export default function ObjectifModal({ isOpen, onClose, editTarget, defaultDoma
         <Textarea label="Description" value={form.description} onChange={(e) => set('description', e.target.value)} rows={2} placeholder="Contexte, motivation..." />
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 12 }}>
-          <Select label="Horizon" value={form.horizon} onChange={(e) => set('horizon', e.target.value)}>
+          <Select label="Horizon" value={form.horizon} onChange={handleHorizonChange}>
             {HORIZONS.map((h) => <option key={h} value={h}>{HORIZON_LABEL[h] ?? h}</option>)}
           </Select>
           <Select label="Statut" value={form.status} onChange={(e) => set('status', e.target.value)}>
             {STATUTS.map((s) => <option key={s} value={s}>{s}</option>)}
           </Select>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <Input label="Date de début" type="date" value={form.date_debut ?? ''} onChange={(e) => set('date_debut', e.target.value)} />
+          <Input label="Date de fin estimée" type="date" value={form.date_fin ?? ''} onChange={(e) => set('date_fin', e.target.value)} />
         </div>
 
         <Input label="KPI (résultat mesurable)" value={form.kpi} onChange={(e) => set('kpi', e.target.value)} placeholder="ex: 5 000 followers" />

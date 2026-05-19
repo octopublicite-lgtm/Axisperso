@@ -27,6 +27,8 @@ function toDbObjectif(o, userId) {
     progress: o.progress ?? 0,
     kpi: o.kpi ?? '',
     notes: notesEncoded,
+    date_debut: o.date_debut ?? null,
+    date_fin: o.date_fin ?? null,
     updated_at: new Date().toISOString(),
   }
 }
@@ -58,6 +60,8 @@ function fromDbObjectif(row) {
     notes,
     milestones,
     progressHistory,
+    date_debut: row.date_debut ?? null,
+    date_fin: row.date_fin ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }

@@ -6,6 +6,11 @@ import { getDomainColor, getDomainLight } from '../../utils/colors'
 import { DOMAINS, HORIZON_LABEL } from '../../utils/constants'
 import { Pencil, Trash2 } from 'lucide-react'
 
+function fmtDate(d) {
+  if (!d) return null
+  return new Date(d + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
 const STATUT_COLORS = {
   'En cours':  { color: '#FF6B35', bg: '#FFF0EB' },
   'Atteint':   { color: '#10B981', bg: '#E6FAF5' },
@@ -64,6 +69,12 @@ export default function ObjectifCard({ objectif: o, onEdit }) {
         <ProgressBar value={o.progress} color={color} />
         <span className="pct">{o.progress}%</span>
       </div>
+
+      {(o.date_debut || o.date_fin) && (
+        <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>
+          📅 {fmtDate(o.date_debut)} → {fmtDate(o.date_fin)}
+        </div>
+      )}
 
       {o.kpi && <div className="kpi-line">🎯 {o.kpi}</div>}
 
