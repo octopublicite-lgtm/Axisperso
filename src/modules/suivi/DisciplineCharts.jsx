@@ -51,7 +51,7 @@ function DailyTooltip({ active, payload }) {
     <div style={{ background: '#fff', border: '1px solid #EEE', borderRadius: 10, padding: '9px 14px', fontSize: 12, boxShadow: '0 4px 14px rgba(0,0,0,0.09)' }}>
       <p style={{ margin: '0 0 4px', fontWeight: 700, color: 'var(--text-1)' }}>{label}</p>
       <p style={{ margin: 0, color: '#FF6B35', fontWeight: 600 }}>
-        {d.done}/{d.total} habitudes ({d.pct}%)
+        {d.done}/{d.total} habitudes quotidiennes ({d.pct}%)
       </p>
     </div>
   )
@@ -104,15 +104,19 @@ export default function DisciplineCharts({ allLogs, habitudes }) {
   const { monthStr, daysInMonth, label: monthLabel } = useMemo(() => getMonthMeta(monthOffset), [monthOffset])
 
   const dailyData = useMemo(() => {
-    if (!habitudes.length) return []
-    const total = habitudes.length
+    const quotidienHabits = habitudes.filter((h) =>
+      h.frequence === 'quotidien' || h.frequence === 'Quotidien'
+    )
+    const quotidienIds = new Set(quotidienHabits.map((h) => h.id))
+    const total = quotidienHabits.length
+    if (!total) return []
     return Array.from({ length: daysInMonth }, (_, i) => {
       const dayNum = i + 1
       const dateStr = `${monthStr}-${String(dayNum).padStart(2, '0')}`
       const isFuture = dateStr > todayStr
       if (isFuture) return { day: dayNum, dateStr, pct: null, done: 0, total, isToday: false }
       const done = new Set(
-        allLogs.filter((l) => l.date === dateStr).map((l) => l.habitude_id)
+        allLogs.filter((l) => l.date === dateStr && quotidienIds.has(l.habitude_id)).map((l) => l.habitude_id)
       ).size
       const pct = Math.round((done / total) * 100)
       return { day: dayNum, dateStr, pct, done, total, isToday: dateStr === todayStr }
