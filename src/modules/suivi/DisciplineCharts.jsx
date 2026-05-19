@@ -7,51 +7,87 @@ import {
 } from 'recharts'
 import { getDomainColor } from '../../utils/colors'
 import { DOMAINS } from '../../utils/constants'
-import { getISOWeek } from '../../utils/dates'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 
-function ChartCard({ title, subtitle, children, style }) {
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function capitalize(str) { return str.charAt(0).toUpperCase() + str.slice(1) }
+
+function getMonthMeta(monthOffset) {
+  const now = new Date()
+  const ref = new Date(now.getFullYear(), now.getMonth() + monthOffset, 1)
+  const year = ref.getFullYear()
+  const month = ref.getMonth()
+  const monthStr = `${year}-${String(month + 1).padStart(2, '0')}`
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+  const label = capitalize(ref.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }))
+  return { year, month, monthStr, daysInMonth, label }
+}
+
+// ── Sub-components ────────────────────────────────────────────────────────────
+
+function ChartCard({ title, subtitle, children, style, header }) {
   return (
-    <div style={{
-      background: '#fff', borderRadius: 14, padding: 24,
-      border: '1.5px solid #EEEEEE', ...style,
-    }}>
-      <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-1)', margin: '0 0 2px' }}>{title}</p>
-      {subtitle && <p style={{ fontSize: 12, color: 'var(--text-3)', margin: '0 0 16px' }}>{subtitle}</p>}
+    <div style={{ background: '#fff', borderRadius: 14, padding: 24, border: '1.5px solid #EEEEEE', ...style }}>
+      {header && <div style={{ marginBottom: 12 }}>{header}</div>}
+      {!header && (
+        <div style={{ marginBottom: 14 }}>
+          <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>{title}</p>
+          {subtitle && <p style={{ fontSize: 12, color: 'var(--text-3)', margin: '3px 0 0' }}>{subtitle}</p>}
+        </div>
+      )}
       {children}
     </div>
   )
 }
 
-function getLast8Weeks() {
-  const weeks = []
-  for (let i = 7; i >= 0; i--) {
-    const d = new Date()
-    d.setDate(d.getDate() - i * 7)
-    const day = d.getDay()
-    const monday = new Date(d)
-    monday.setDate(d.getDate() - day + (day === 0 ? -6 : 1))
-    monday.setHours(0, 0, 0, 0)
-    const sunday = new Date(monday)
-    sunday.setDate(monday.getDate() + 6)
-    const fmt = (dt) => dt.toISOString().split('T')[0]
-    weeks.push({ label: `S${getISOWeek(monday)}`, start: fmt(monday), end: fmt(sunday) })
-  }
-  return weeks
-}
-
-const CustomTooltip = ({ active, payload, label, suffix = '%', prefix = '' }) => {
+function DailyTooltip({ active, payload }) {
   if (!active || !payload?.length) return null
+  const d = payload[0].payload
+  if (d.pct === null) return null
+  const date = new Date(d.dateStr + 'T00:00:00')
+  const label = capitalize(date.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }))
   return (
-    <div style={{ background: '#fff', border: '1px solid #EEE', borderRadius: 10, padding: '8px 14px', fontSize: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}>
-      <p style={{ margin: 0, fontWeight: 700, color: 'var(--text-1)' }}>{label}</p>
-      <p style={{ margin: '2px 0 0', color: '#FF6B35' }}>{prefix}{payload[0].value}{suffix}</p>
+    <div style={{ background: '#fff', border: '1px solid #EEE', borderRadius: 10, padding: '9px 14px', fontSize: 12, boxShadow: '0 4px 14px rgba(0,0,0,0.09)' }}>
+      <p style={{ margin: '0 0 4px', fontWeight: 700, color: 'var(--text-1)' }}>{label}</p>
+      <p style={{ margin: 0, color: '#FF6B35', fontWeight: 600 }}>
+        {d.done}/{d.total} habitudes ({d.pct}%)
+      </p>
     </div>
   )
 }
 
+function renderDot(today) {
+  return function Dot({ cx, cy, payload }) {
+    if (payload.pct === null) return null
+    if (payload.dateStr === today) {
+      return <circle cx={cx} cy={cy} r={7} fill="#FF6B35" stroke="#fff" strokeWidth={2} />
+    }
+    return <circle cx={cx} cy={cy} r={3} fill="#FF6B35" strokeWidth={0} />
+  }
+}
+
+function StatPill({ children }) {
+  return (
+    <div style={{
+      display: 'inline-flex', alignItems: 'center', gap: 5,
+      fontSize: 12, fontWeight: 600, color: 'var(--text-2)',
+      background: '#F7F7F9', borderRadius: 99, padding: '5px 12px',
+      border: '1px solid #EEEEEE',
+    }}>
+      {children}
+    </div>
+  )
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
+
 export default function DisciplineCharts({ allLogs, habitudes }) {
   const sectionRef = useRef(null)
   const [isVisible, setIsVisible] = useState(false)
+  const [monthOffset, setMonthOffset] = useState(0)
+
+  const todayStr = new Date().toISOString().split('T')[0]
 
   useEffect(() => {
     const el = sectionRef.current
@@ -64,20 +100,39 @@ export default function DisciplineCharts({ allLogs, habitudes }) {
     return () => obs.disconnect()
   }, [])
 
-  // ── Chart 1: Weekly completion rate (last 8 weeks) ────────────────────────
-  const weeklyData = useMemo(() => {
-    if (!allLogs.length || !habitudes.length) return []
-    const weeks = getLast8Weeks()
-    return weeks.map(({ label, start, end }) => {
-      const pairs = new Set(
-        allLogs
-          .filter((l) => l.date >= start && l.date <= end)
-          .map((l) => `${l.habitude_id}|${l.date}`)
-      )
-      const pct = Math.round((pairs.size / (habitudes.length * 7)) * 100)
-      return { week: label, pct: Math.min(pct, 100) }
+  // ── Chart 1: Daily completion for selected month ──────────────────────────
+  const { monthStr, daysInMonth, label: monthLabel } = useMemo(() => getMonthMeta(monthOffset), [monthOffset])
+
+  const dailyData = useMemo(() => {
+    if (!habitudes.length) return []
+    const total = habitudes.length
+    return Array.from({ length: daysInMonth }, (_, i) => {
+      const dayNum = i + 1
+      const dateStr = `${monthStr}-${String(dayNum).padStart(2, '0')}`
+      const isFuture = dateStr > todayStr
+      if (isFuture) return { day: dayNum, dateStr, pct: null, done: 0, total, isToday: false }
+      const done = new Set(
+        allLogs.filter((l) => l.date === dateStr).map((l) => l.habitude_id)
+      ).size
+      const pct = Math.round((done / total) * 100)
+      return { day: dayNum, dateStr, pct, done, total, isToday: dateStr === todayStr }
     })
-  }, [allLogs, habitudes])
+  }, [allLogs, habitudes, monthStr, daysInMonth, todayStr])
+
+  const stats = useMemo(() => {
+    const valid = dailyData.filter((d) => d.pct !== null)
+    if (!valid.length) return null
+    const best = Math.max(...valid.map((d) => d.pct))
+    const avg = Math.round(valid.reduce((s, d) => s + d.pct, 0) / valid.length)
+    const perfect = valid.filter((d) => d.pct === 100).length
+    return { best, avg, perfect }
+  }, [dailyData])
+
+  // X axis: show every 5th day to avoid crowding
+  const xTicks = useMemo(
+    () => Array.from({ length: daysInMonth }, (_, i) => i + 1).filter((d) => d === 1 || d % 5 === 0),
+    [daysInMonth]
+  )
 
   // ── Chart 2: Top habits by total days ────────────────────────────────────
   const topHabitsData = useMemo(() => {
@@ -94,9 +149,9 @@ export default function DisciplineCharts({ allLogs, habitudes }) {
   const radarData = useMemo(() => {
     if (!allLogs.length || !habitudes.length) return []
     const now = new Date()
-    const monthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+    const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
     const daysSoFar = now.getDate()
-    const logsThisMonth = allLogs.filter((l) => l.date.startsWith(monthStr))
+    const logsThisMonth = allLogs.filter((l) => l.date.startsWith(currentMonthStr))
     const domainsUsed = DOMAINS.filter((d) => habitudes.some((h) => h.domaine === d.id)).slice(0, 8)
     return domainsUsed.map((domain) => {
       const inDomain = habitudes.filter((h) => h.domaine === domain.id)
@@ -112,6 +167,7 @@ export default function DisciplineCharts({ allLogs, habitudes }) {
   }, [allLogs, habitudes])
 
   const maxDays = Math.max(...topHabitsData.map((d) => d.days), 1)
+  const DotRenderer = useMemo(() => renderDot(todayStr), [todayStr])
 
   if (!habitudes.length) return null
 
@@ -121,13 +177,46 @@ export default function DisciplineCharts({ allLogs, habitudes }) {
         📈 Développement de la discipline
       </p>
 
-      {/* Chart 1 — Full width area */}
+      {/* Chart 1 — Daily view with month selector */}
       <ChartCard
-        title="Taux de réalisation hebdomadaire"
-        subtitle="% d'habitudes complétées par semaine sur les 8 dernières semaines"
+        header={
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>
+                  Taux de réalisation quotidien
+                </p>
+                <p style={{ fontSize: 12, color: 'var(--text-3)', margin: '3px 0 0' }}>
+                  % d'habitudes complétées chaque jour du mois sélectionné
+                </p>
+              </div>
+              {/* Month selector */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                <button
+                  className="btn btn-ghost btn-sm"
+                  style={{ padding: '4px 8px' }}
+                  onClick={() => setMonthOffset((v) => v - 1)}
+                >
+                  <ChevronLeft size={15} />
+                </button>
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-1)', minWidth: 96, textAlign: 'center' }}>
+                  {monthLabel}
+                </span>
+                <button
+                  className="btn btn-ghost btn-sm"
+                  style={{ padding: '4px 8px' }}
+                  onClick={() => setMonthOffset((v) => v + 1)}
+                  disabled={monthOffset >= 0}
+                >
+                  <ChevronRight size={15} />
+                </button>
+              </div>
+            </div>
+          </div>
+        }
       >
         <ResponsiveContainer width="100%" height={260}>
-          <AreaChart data={weeklyData} margin={{ top: 10, right: 56, left: -14, bottom: 0 }}>
+          <AreaChart data={dailyData} margin={{ top: 10, right: 56, left: -14, bottom: 0 }}>
             <defs>
               <linearGradient id="orangeGrad" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#FF6B35" stopOpacity={0.22} />
@@ -135,18 +224,28 @@ export default function DisciplineCharts({ allLogs, habitudes }) {
               </linearGradient>
             </defs>
             <CartesianGrid stroke="#F5F5F7" vertical={false} />
-            <XAxis dataKey="week" tick={{ fontSize: 12, fill: '#BBB' }} axisLine={false} tickLine={false} />
-            <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} tick={{ fontSize: 11, fill: '#BBB' }} axisLine={false} tickLine={false} />
-            <Tooltip content={<CustomTooltip suffix="%" />} labelFormatter={(l) => `Semaine ${l}`} />
+            <XAxis
+              dataKey="day"
+              ticks={xTicks}
+              tick={{ fontSize: 11, fill: '#BBB' }}
+              axisLine={false} tickLine={false}
+            />
+            <YAxis
+              domain={[0, 100]}
+              tickFormatter={(v) => `${v}%`}
+              tick={{ fontSize: 11, fill: '#BBB' }}
+              axisLine={false} tickLine={false}
+            />
+            <Tooltip content={<DailyTooltip />} />
             <ReferenceLine
               y={80} stroke="#FF6B35" strokeDasharray="5 4" strokeWidth={1.5}
               label={{ value: 'Objectif 80%', position: 'right', fontSize: 11, fill: '#FF6B35', fontWeight: 600 }}
             />
             <Area
-              type="monotone" dataKey="pct"
+              type="monotone" dataKey="pct" connectNulls={false}
               stroke="#FF6B35" strokeWidth={2.5}
               fill="url(#orangeGrad)"
-              dot={{ fill: '#FF6B35', r: 4, strokeWidth: 0 }}
+              dot={<DotRenderer />}
               activeDot={{ r: 6, fill: '#FF6B35' }}
               isAnimationActive={isVisible}
               animationBegin={0}
@@ -154,6 +253,15 @@ export default function DisciplineCharts({ allLogs, habitudes }) {
             />
           </AreaChart>
         </ResponsiveContainer>
+
+        {/* Summary stats */}
+        {stats && (
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14 }}>
+            <StatPill>🏆 Meilleur jour : {stats.best}%</StatPill>
+            <StatPill>📊 Moyenne du mois : {stats.avg}%</StatPill>
+            <StatPill>🔥 Jours à 100% : {stats.perfect} jour{stats.perfect > 1 ? 's' : ''}</StatPill>
+          </div>
+        )}
       </ChartCard>
 
       {/* Chart 2 + Chart 3 side by side */}
@@ -167,7 +275,7 @@ export default function DisciplineCharts({ allLogs, habitudes }) {
               <XAxis type="number" domain={[0, maxDays]} tick={{ fontSize: 11, fill: '#BBB' }} axisLine={false} tickLine={false} />
               <YAxis
                 type="category" dataKey="name" width={88}
-                tick={{ fontSize: 11, fill: '#555', width: 85 }}
+                tick={{ fontSize: 11, fill: '#555' }}
                 axisLine={false} tickLine={false}
               />
               <Tooltip
@@ -175,7 +283,7 @@ export default function DisciplineCharts({ allLogs, habitudes }) {
                 contentStyle={{ borderRadius: 10, border: '1px solid #EEE', fontSize: 12 }}
               />
               <Bar dataKey="days" radius={[0, 6, 6, 0]} isAnimationActive={isVisible} animationBegin={0} animationDuration={900}>
-                {topHabitsData.map((entry, i) => (
+                {topHabitsData.map((entry) => (
                   <Cell key={entry.id} fill={getDomainColor(entry.domaine)} />
                 ))}
                 <LabelList dataKey="days" position="right" style={{ fontSize: 11, fontWeight: 700, fill: '#999' }} />
