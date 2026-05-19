@@ -216,10 +216,10 @@ export const SEED_DATA = {
     { titre: 'Cardio 30 min',             icon: '🏃', domaine: 'sport',         frequence: '5x/semaine',   actif: true },
   ],
   rituel: [
-    { nom: 'Hydratation + vitamines',   duree: 2 },
-    { nom: 'Journal 5 minutes',          duree: 5 },
-    { nom: 'Revue objectifs du jour',    duree: 5 },
-    { nom: 'Plan du jour (3 priorités)', duree: 5 },
-    { nom: 'Lecture',                    duree: 20 },
+    { nom: 'Hydratation + vitamines',   duree_min: 2 },
+    { nom: 'Journal 5 minutes',          duree_min: 5 },
+    { nom: 'Revue objectifs du jour',    duree_min: 5 },
+    { nom: 'Plan du jour (3 priorités)', duree_min: 5 },
+    { nom: 'Lecture',                    duree_min: 20 },
   ],
 }

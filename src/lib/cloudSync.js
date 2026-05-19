@@ -167,7 +167,7 @@ async function logsPush(userId, logsMap) {
   try {
     const { error } = await supabase
       .from('habitude_logs')
-      .upsert(rows, { onConflict: 'user_id,habitude_id,date' })
+      .upsert(rows, { onConflict: 'habitude_id,date' })
     if (error) console.error('[push] habitude_logs error:', error.message)
   } catch (err) {
     console.error('[push] habitude_logs sync error:', err)

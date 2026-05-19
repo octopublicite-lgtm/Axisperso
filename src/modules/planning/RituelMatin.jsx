@@ -14,7 +14,7 @@ export default function RituelMatin() {
 
   const etapes = rituel?.etapes ?? []
   const completions = (rituel?.completions ?? {})[today] ?? []
-  const totalMinutes = etapes.reduce((acc, e) => acc + (e.duree ?? 0), 0)
+  const totalMinutes = etapes.reduce((acc, e) => acc + (e.duree_min ?? 0), 0)
   const completedCount = completions.length
 
   useEffect(() => {
@@ -28,7 +28,7 @@ export default function RituelMatin() {
 
   function handleAdd() {
     if (!newNom.trim()) return
-    addEtape({ nom: newNom.trim(), duree: Number(newDuree) })
+    addEtape({ nom: newNom.trim(), duree_min: Number(newDuree) })
     setNewNom('')
     setNewDuree(5)
   }
@@ -72,7 +72,7 @@ export default function RituelMatin() {
                   {done && <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>}
                 </div>
                 <span className="text">{e.nom}</span>
-                <span style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600 }}>{e.duree} min</span>
+                <span style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600 }}>{e.duree_min} min</span>
                 <button onClick={() => removeEtape(e.id)} aria-label="Supprimer" className="btn-icon">
                   <Trash2 size={13} />
                 </button>
