@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import PageWrapper from '../../components/layout/PageWrapper'
 import { useApp } from '../../context/AppContext'
 import { DOMAINS, HORIZONS, HORIZON_LABEL, STATUTS } from '../../utils/constants'
@@ -79,12 +79,41 @@ function FinanceBanner() {
 
 export default function Objectifs() {
   const { objectifs, settings } = useApp()
-  const [activeDomain, setActiveDomain] = useState(null)
-  const [filterHorizon, setFilterHorizon] = useState('Tous')
-  const [filterStatut, setFilterStatut] = useState('Tous')
+  const [searchParams, setSearchParams] = useSearchParams()
   const [modalOpen, setModalOpen] = useState(false)
   const [editTarget, setEditTarget] = useState(null)
   const [habitModalOpen, setHabitModalOpen] = useState(false)
+
+  const activeDomain = searchParams.get('domain') || null
+  const filterHorizon = searchParams.get('horizon') || 'Tous'
+  const filterStatut = searchParams.get('statut') || 'Tous'
+
+  function setActiveDomain(id) {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      if (id) next.set('domain', id)
+      else next.delete('domain')
+      return next
+    })
+  }
+
+  function setFilterHorizon(h) {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      if (h && h !== 'Tous') next.set('horizon', h)
+      else next.delete('horizon')
+      return next
+    })
+  }
+
+  function setFilterStatut(s) {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      if (s && s !== 'Tous') next.set('statut', s)
+      else next.delete('statut')
+      return next
+    })
+  }
 
   const filtered = useMemo(() => {
     return objectifs.filter((o) => {
