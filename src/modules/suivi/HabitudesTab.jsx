@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useApp } from '../../context/AppContext'
 import { useAuth } from '../../context/AuthContext'
 import { useLocalStorage } from '../../hooks/useLocalStorage'
@@ -11,10 +11,22 @@ import { Plus, Trash2, ChevronDown, ChevronRight, ChevronLeft } from 'lucide-rea
 const DAY_LABELS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
 
 const SECTIONS = [
-  { id: 'quotidien', label: '📅 Quotidiennes',             freqs: ['quotidien'] },
-  { id: 'semaine',   label: '🔄 Plusieurs fois / semaine', freqs: ['3x_semaine', '5x_semaine'] },
-  { id: 'hebdo',     label: '📆 Hebdomadaires',            freqs: ['hebdomadaire'] },
+  { id: 'quotidien', label: '📅 Quotidiennes',                freqs: ['quotidien'],                       weekly: false },
+  { id: 'semaine',   label: '🔄 Plusieurs fois / semaine 📅', freqs: ['3x_semaine', '5x_semaine'],        weekly: true  },
+  { id: 'hebdo',     label: '📆 Hebdomadaires 📅',            freqs: ['hebdomadaire'],                    weekly: true  },
 ]
+
+function calcStreak(rows) {
+  const dates = new Set(rows.map((r) => r.date))
+  let s = 0
+  const ref = new Date()
+  for (let i = 0; i < 365; i++) {
+    const key = ref.toISOString().split('T')[0]
+    if (dates.has(key)) { s++; ref.setDate(ref.getDate() - 1) }
+    else break
+  }
+  return s
+}
 
 const EMPTY = { titre: '', icon: '✅', domaine: 'mindstyle', frequence: 'quotidien' }
 
@@ -45,8 +57,28 @@ function DayDots({ h, weekDays, today, isLogged, onToggle, readOnly }) {
   )
 }
 
-function HabitRow({ h, weekDays, today, isLogged, onToggle, getStreak, deleteHabitude, readOnly }) {
-  const streak = getStreak(h.id)
+function HabitRow({ h, weekDays, today, isLogged, onToggle, deleteHabitude, readOnly, sectionId }) {
+  const [streak, setStreak] = useState(null)
+
+  useEffect(() => {
+    if (sectionId !== 'quotidien' || !supabase) return
+    let cancelled = false
+    ;(async () => {
+      const { data } = await supabase
+        .from('habitude_logs')
+        .select('date')
+        .eq('habitude_id', h.id)
+        .order('date', { ascending: false })
+      if (cancelled || !data) return
+      setStreak(calcStreak(data))
+    })()
+    return () => { cancelled = true }
+  }, [h.id, sectionId])
+
+  const weeklyDone = weekDays.filter((d) => isLogged(h.id, d)).length
+  const weeklyTarget = h.frequence === '3x_semaine' ? 3 : h.frequence === '5x_semaine' ? 5 : 1
+  const weeklyMet = weeklyDone >= weeklyTarget
+
   return (
     <div className="habit-row" style={{ '--c': getDomainColor(h.domaine) }}>
       <div className="name">
@@ -64,7 +96,19 @@ function HabitRow({ h, weekDays, today, isLogged, onToggle, getStreak, deleteHab
         )}
       </div>
       <div className="streak">
-        {streak > 0 ? <><span>🔥</span>{streak}j</> : <span style={{ color: 'var(--text-3)' }}>—</span>}
+        {sectionId === 'quotidien' ? (
+          streak !== null && streak > 0
+            ? <><span>🔥</span>{streak}j</>
+            : <span style={{ color: 'var(--text-3)' }}>—</span>
+        ) : (
+          <span style={{
+            fontSize: 12, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
+            background: weeklyMet ? '#E6FAF5' : '#FFF0EB',
+            color: weeklyMet ? '#10B981' : 'var(--orange)',
+          }}>
+            {weeklyDone}/{weeklyTarget}
+          </span>
+        )}
       </div>
       <DayDots h={h} weekDays={weekDays} today={today} isLogged={isLogged} onToggle={onToggle} readOnly={readOnly} />
     </div>
@@ -72,7 +116,7 @@ function HabitRow({ h, weekDays, today, isLogged, onToggle, getStreak, deleteHab
 }
 
 export default function HabitudesTab() {
-  const { habitudes, addHabitude, deleteHabitude, toggleLog, isLogged, getStreak, getCompletionForDay, addToast } = useApp()
+  const { habitudes, addHabitude, deleteHabitude, toggleLog, isLogged, getCompletionForDay, addToast } = useApp()
   const { session } = useAuth()
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(EMPTY)
@@ -241,9 +285,9 @@ export default function HabitudesTab() {
                       today={today}
                       isLogged={isLogged}
                       onToggle={handleToggle}
-                      getStreak={getStreak}
                       deleteHabitude={deleteHabitude}
                       readOnly={readOnly}
+                      sectionId={section.id}
                     />
                   ))}
                 </div>
