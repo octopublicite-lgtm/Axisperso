@@ -18,15 +18,22 @@ const SECTIONS = [
 ]
 
 function calcStreak(rows) {
+  if (!rows || rows.length === 0) return 0
   const dates = new Set(rows.map((r) => r.date))
-  let s = 0
-  const ref = new Date()
-  for (let i = 0; i < 365; i++) {
-    const key = ref.toISOString().split('T')[0]
-    if (dates.has(key)) { s++; ref.setDate(ref.getDate() - 1) }
+  const today = new Date().toISOString().split('T')[0]
+  const yesterday = new Date()
+  yesterday.setDate(yesterday.getDate() - 1)
+  const yesterdayStr = yesterday.toISOString().split('T')[0]
+  const startStr = dates.has(today) ? today : dates.has(yesterdayStr) ? yesterdayStr : null
+  if (!startStr) return 0
+  let streak = 0
+  const cur = new Date(startStr + 'T00:00:00')
+  while (true) {
+    const key = cur.toISOString().split('T')[0]
+    if (dates.has(key)) { streak++; cur.setDate(cur.getDate() - 1) }
     else break
   }
-  return s
+  return streak
 }
 
 const EMPTY = { titre: '', icon: '✅', domaine: 'mindstyle', frequence: 'quotidien' }
@@ -104,7 +111,7 @@ function HabitRow({ h, weekDays, today, isLogged, onToggle, deleteHabitude, read
       <div className="streak">
         {sectionId === 'quotidien' ? (
           streak !== null && streak > 0
-            ? <><span>🔥</span>{streak}j</>
+            ? <span style={{ color: 'var(--orange)', fontWeight: 700, fontSize: 13 }}>🔥 {streak}j</span>
             : <span style={{ color: 'var(--text-3)' }}>—</span>
         ) : (
           <span style={{
