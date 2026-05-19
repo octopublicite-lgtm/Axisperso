@@ -5,7 +5,14 @@ import Button from '../../components/ui/Button'
 import { useApp } from '../../context/AppContext'
 import { FREQUENCE_LABEL } from '../../utils/constants'
 
-const ICONS = ['📖', '🏃', '🙏', '💧', '✍️', '🧘', '💪', '🌙', '⏰', '🥗', '📵', '🎯']
+const ICON_CATEGORIES = [
+  { label: 'Sport & Santé',        icons: ['🏃', '🚴', '🏋️', '🤸', '🧘', '🏊', '⚽', '🥗', '💧', '🍎', '😴', '🚶'] },
+  { label: 'Spiritualité & Mindset', icons: ['🙏', '📖', '🤲', '☪️', '✨', '🧠', '🫀', '🌙', '⭐', '🕌', '📿', '💭'] },
+  { label: 'Business & Travail',   icons: ['💼', '📊', '💻', '📝', '📞', '🎯', '🔥', '⚡', '🏆', '💡', '📈', '🤝'] },
+  { label: 'Apprentissage',        icons: ['📚', '🎓', '✏️', '🔬', '🌍', '🗣️', '🎨', '🎵', '🧩', '📰', '🖊️', '🔭'] },
+  { label: 'Lifestyle',            icons: ['⏰', '🌅', '🧹', '🛏️', '👗', '🌿', '🪴', '🍳', '☕', '🎮', '📱', '🚫'] },
+  { label: 'Finance',              icons: ['💰', '💳', '🏦', '📉', '🪙', '💎', '🏠', '🚗', '💵', '📋', '🤑', '💹'] },
+]
 const FREQ_OPTIONS = ['quotidien', 'hebdomadaire', '3x_semaine', '5x_semaine']
 
 const EMPTY = { titre: '', description: '', frequence: 'quotidien', icon: '📖', actif: true }
@@ -64,16 +71,25 @@ export default function HabitudeModal({ isOpen, onClose, editTarget, domaine }) 
 
         <div>
           <label className="text-xs font-semibold text-secondary tracking-wide uppercase block mb-2">Icône</label>
-          <div className="grid grid-cols-6 gap-2">
-            {ICONS.map((ic) => (
-              <button
-                key={ic}
-                type="button"
-                onClick={() => set('icon', ic)}
-                className={`text-2xl p-2 rounded-lg border-2 transition-all ${form.icon === ic ? 'border-accent bg-[#FFF0EB]' : 'border-border hover:border-accent'}`}
-              >
-                {ic}
-              </button>
+          <div style={{ maxHeight: 260, overflowY: 'auto', paddingRight: 4 }}>
+            {ICON_CATEGORIES.map((cat) => (
+              <div key={cat.label} style={{ marginBottom: 10 }}>
+                <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-3)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>
+                  {cat.label}
+                </p>
+                <div className="grid grid-cols-6 gap-2">
+                  {cat.icons.map((ic) => (
+                    <button
+                      key={ic}
+                      type="button"
+                      onClick={() => set('icon', ic)}
+                      className={`text-2xl p-2 rounded-lg border-2 transition-all ${form.icon === ic ? 'border-accent bg-[#FFF0EB]' : 'border-border hover:border-accent'}`}
+                    >
+                      {ic}
+                    </button>
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
         </div>
