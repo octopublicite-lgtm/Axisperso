@@ -10,10 +10,11 @@ import { Plus, Trash2, ChevronDown, ChevronRight, ChevronLeft } from 'lucide-rea
 
 const DAY_LABELS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
 
+const FREQ_PILL = { '3x_semaine': '3x/sem', '5x_semaine': '5x/sem', 'hebdomadaire': 'Hebdo' }
+
 const SECTIONS = [
-  { id: 'quotidien', label: '📅 Quotidiennes',                freqs: ['quotidien'],                       weekly: false },
-  { id: 'semaine',   label: '🔄 Plusieurs fois / semaine 📅', freqs: ['3x_semaine', '5x_semaine'],        weekly: true  },
-  { id: 'hebdo',     label: '📆 Hebdomadaires 📅',            freqs: ['hebdomadaire'],                    weekly: true  },
+  { id: 'quotidien', label: '📅 Quotidiennes',    freqs: ['quotidien'],                                weekly: false },
+  { id: 'nonquot',   label: '📆 Non quotidiennes', freqs: ['3x_semaine', '5x_semaine', 'hebdomadaire'], weekly: true  },
 ]
 
 function calcStreak(rows) {
@@ -84,6 +85,11 @@ function HabitRow({ h, weekDays, today, isLogged, onToggle, deleteHabitude, read
       <div className="name">
         <span>{h.icon}</span>
         <span style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--text-1)' }}>{h.titre || h.nom}</span>
+        {sectionId === 'nonquot' && FREQ_PILL[h.frequence] && (
+          <span style={{ fontSize: 10, fontWeight: 600, color: '#999', background: '#F0F0F0', padding: '1px 6px', borderRadius: 99 }}>
+            {FREQ_PILL[h.frequence]}
+          </span>
+        )}
         {!readOnly && (
           <button
             onClick={() => { if (confirm(`Supprimer "${h.titre || h.nom}" ?`)) deleteHabitude(h.id) }}
@@ -121,7 +127,7 @@ export default function HabitudesTab() {
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(EMPTY)
   const [weekOffset, setWeekOffset] = useState(0)
-  const [collapsed, setCollapsed] = useLocalStorage('habit_sections', { quotidien: false, semaine: false, hebdo: true })
+  const [collapsed, setCollapsed] = useLocalStorage('habit_sections', { quotidien: false, nonquot: false })
   const today = todayKey()
   const last365 = useMemo(() => getLast365Days(), [])
 
@@ -162,12 +168,10 @@ export default function HabitudesTab() {
   }
 
   const grouped = useMemo(() => {
-    const map = {}
-    SECTIONS.forEach((s) => { map[s.id] = [] })
+    const map = { quotidien: [], nonquot: [] }
     habitudes.forEach((h) => {
-      const section = SECTIONS.find((s) => s.freqs.includes(h.frequence))
-      if (section) map[section.id].push(h)
-      else map['quotidien'].push(h)
+      if (h.frequence === 'quotidien') map.quotidien.push(h)
+      else map.nonquot.push(h)
     })
     return map
   }, [habitudes])
