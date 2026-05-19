@@ -185,7 +185,7 @@ export default function DisciplineCharts({ allLogs, habitudes }) {
       <ChartCard
         header={
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div className="chart-daily-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
                 <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>
                   Taux de réalisation quotidien
@@ -269,7 +269,7 @@ export default function DisciplineCharts({ allLogs, habitudes }) {
       </ChartCard>
 
       {/* Chart 2 + Chart 3 side by side */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+      <div className="discipline-2col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
 
         {/* Chart 2 — Horizontal bars */}
         <ChartCard title="Top habitudes" subtitle="Jours complétés au total (toutes périodes)">

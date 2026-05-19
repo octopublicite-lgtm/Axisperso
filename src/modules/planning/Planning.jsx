@@ -20,7 +20,7 @@ export default function Planning() {
       </div>
       {tab === 0 && <RituelMatin />}
       {tab === 1 && <PlanDuJour />}
-      {tab === 2 && <Semaine />}
+      {tab === 2 && <div className="week-scroll-wrapper"><Semaine /></div>}
       {tab === 3 && <TimeBlocksRecurrents />}
     </PageWrapper>
   )

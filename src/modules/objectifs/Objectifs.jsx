@@ -83,6 +83,7 @@ export default function Objectifs() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editTarget, setEditTarget] = useState(null)
   const [habitModalOpen, setHabitModalOpen] = useState(false)
+  const [fabOpen, setFabOpen] = useState(false)
 
   const activeDomain = searchParams.get('domain') || null
   const filterHorizon = searchParams.get('horizon') || 'Tous'
@@ -243,10 +244,27 @@ export default function Objectifs() {
         </div>
       </div>
 
-      {/* Mobile FAB */}
-      <button className="fab" onClick={openCreate} aria-label="Nouvel objectif">
-        <Plus size={28} strokeWidth={2.5} />
-      </button>
+      {/* Mobile FAB with dropdown */}
+      <div className="fab-backdrop" style={fabOpen ? { display: 'block' } : undefined} onClick={() => setFabOpen(false)} />
+      <div className="fab-container">
+        {fabOpen && (
+          <div className="fab-menu">
+            <button className="fab-menu-item" onClick={() => { setHabitModalOpen(true); setFabOpen(false) }}>
+              ✅ Nouvelle habitude
+            </button>
+            <button className="fab-menu-item" onClick={() => { openCreate(); setFabOpen(false) }}>
+              🎯 Nouvel objectif
+            </button>
+          </div>
+        )}
+        <button
+          className="fab-btn"
+          onClick={() => setFabOpen((v) => !v)}
+          aria-label="Actions"
+        >
+          <Plus size={28} strokeWidth={2.5} style={{ transition: 'transform 0.2s', transform: fabOpen ? 'rotate(45deg)' : 'none' }} />
+        </button>
+      </div>
 
       <ObjectifModal
         isOpen={modalOpen}
