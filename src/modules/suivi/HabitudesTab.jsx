@@ -7,6 +7,7 @@ import { getDomainColor } from '../../utils/colors'
 import { DOMAINS } from '../../utils/constants'
 import { supabase } from '../../lib/supabase'
 import { Plus, Trash2, ChevronDown, ChevronRight, ChevronLeft } from 'lucide-react'
+import DisciplineCharts from './DisciplineCharts'
 
 const DAY_LABELS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
 
@@ -120,6 +121,7 @@ export default function HabitudesTab() {
   const [weekOffset, setWeekOffset] = useState(0)
   const [collapsed, setCollapsed] = useLocalStorage('habit_sections', { quotidien: false, nonquot: false })
   const [streaks, setStreaks] = useState({})
+  const [allLogs, setAllLogs] = useState([])
   const today = todayKey()
   const last365 = useMemo(() => getLast365Days(), [])
 
@@ -133,6 +135,7 @@ export default function HabitudesTab() {
         .select('habitude_id, date')
         .eq('user_id', userId)
       if (cancelled || !allLogs) return
+      setAllLogs(allLogs)
       const logsByHabit = {}
       allLogs.forEach((log) => {
         if (!logsByHabit[log.habitude_id]) logsByHabit[log.habitude_id] = []
@@ -342,6 +345,9 @@ export default function HabitudesTab() {
           </div>
         </div>
       </div>
+
+      {/* Discipline charts */}
+      <DisciplineCharts allLogs={allLogs} habitudes={habitudes} />
     </div>
   )
 }
