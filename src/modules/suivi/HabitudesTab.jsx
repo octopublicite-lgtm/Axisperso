@@ -17,20 +17,16 @@ const SECTIONS = [
   { id: 'nonquot',   label: '📆 Non quotidiennes', freqs: ['3x_semaine', '5x_semaine', 'hebdomadaire'], weekly: true  },
 ]
 
-function calcStreak(rows) {
-  if (!rows || rows.length === 0) return 0
-  const dates = new Set(rows.map((r) => r.date))
+function getStreak(dates) {
+  if (!dates?.length) return 0
+  const sorted = [...dates].sort().reverse()
   const today = new Date().toISOString().split('T')[0]
-  const yesterday = new Date()
-  yesterday.setDate(yesterday.getDate() - 1)
-  const yesterdayStr = yesterday.toISOString().split('T')[0]
-  const startStr = dates.has(today) ? today : dates.has(yesterdayStr) ? yesterdayStr : null
-  if (!startStr) return 0
-  let streak = 0
-  const cur = new Date(startStr + 'T00:00:00')
-  while (true) {
-    const key = cur.toISOString().split('T')[0]
-    if (dates.has(key)) { streak++; cur.setDate(cur.getDate() - 1) }
+  const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0]
+  if (sorted[0] !== today && sorted[0] !== yesterday) return 0
+  let streak = 1
+  for (let i = 1; i < sorted.length; i++) {
+    const diff = (new Date(sorted[i - 1]) - new Date(sorted[i])) / 86400000
+    if (diff === 1) streak++
     else break
   }
   return streak
@@ -65,27 +61,29 @@ function DayDots({ h, weekDays, today, isLogged, onToggle, readOnly }) {
   )
 }
 
-function HabitRow({ h, weekDays, today, isLogged, onToggle, deleteHabitude, readOnly, sectionId }) {
-  const [streak, setStreak] = useState(null)
-
-  useEffect(() => {
-    if (sectionId !== 'quotidien' || !supabase) return
-    let cancelled = false
-    ;(async () => {
-      const { data } = await supabase
-        .from('habitude_logs')
-        .select('date')
-        .eq('habitude_id', h.id)
-        .order('date', { ascending: false })
-      if (cancelled || !data) return
-      setStreak(calcStreak(data))
-    })()
-    return () => { cancelled = true }
-  }, [h.id, sectionId])
-
+function HabitRow({ h, weekDays, today, isLogged, onToggle, deleteHabitude, readOnly, sectionId, streak }) {
   const weeklyDone = weekDays.filter((d) => isLogged(h.id, d)).length
   const weeklyTarget = h.frequence === '3x_semaine' ? 3 : h.frequence === '5x_semaine' ? 5 : 1
   const weeklyMet = weeklyDone >= weeklyTarget
+  const hasThisWeek = weeklyDone > 0
+
+  function renderStreak() {
+    if (sectionId !== 'quotidien') {
+      return (
+        <span style={{
+          fontSize: 12, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
+          background: weeklyMet ? '#E6FAF5' : '#FFF0EB',
+          color: weeklyMet ? '#10B981' : 'var(--orange)',
+        }}>
+          {weeklyDone}/{weeklyTarget}
+        </span>
+      )
+    }
+    if (streak === null) return <span style={{ color: 'var(--text-3)' }}>…</span>
+    if (streak > 0) return <span style={{ color: 'var(--orange)', fontWeight: 700, fontSize: 13 }}>🔥 {streak}j</span>
+    if (hasThisWeek) return <span style={{ color: '#10B981', fontWeight: 700, fontSize: 13 }}>✓</span>
+    return <span style={{ color: 'var(--text-3)' }}>—</span>
+  }
 
   return (
     <div className="habit-row" style={{ '--c': getDomainColor(h.domaine) }}>
@@ -108,21 +106,7 @@ function HabitRow({ h, weekDays, today, isLogged, onToggle, deleteHabitude, read
           </button>
         )}
       </div>
-      <div className="streak">
-        {sectionId === 'quotidien' ? (
-          streak !== null && streak > 0
-            ? <span style={{ color: 'var(--orange)', fontWeight: 700, fontSize: 13 }}>🔥 {streak}j</span>
-            : <span style={{ color: 'var(--text-3)' }}>—</span>
-        ) : (
-          <span style={{
-            fontSize: 12, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
-            background: weeklyMet ? '#E6FAF5' : '#FFF0EB',
-            color: weeklyMet ? '#10B981' : 'var(--orange)',
-          }}>
-            {weeklyDone}/{weeklyTarget}
-          </span>
-        )}
-      </div>
+      <div className="streak">{renderStreak()}</div>
       <DayDots h={h} weekDays={weekDays} today={today} isLogged={isLogged} onToggle={onToggle} readOnly={readOnly} />
     </div>
   )
@@ -135,8 +119,31 @@ export default function HabitudesTab() {
   const [form, setForm] = useState(EMPTY)
   const [weekOffset, setWeekOffset] = useState(0)
   const [collapsed, setCollapsed] = useLocalStorage('habit_sections', { quotidien: false, nonquot: false })
+  const [streaks, setStreaks] = useState({})
   const today = todayKey()
   const last365 = useMemo(() => getLast365Days(), [])
+
+  useEffect(() => {
+    const userId = session?.user?.id
+    if (!userId || !supabase) return
+    let cancelled = false
+    ;(async () => {
+      const { data: allLogs } = await supabase
+        .from('habitude_logs')
+        .select('habitude_id, date')
+        .eq('user_id', userId)
+      if (cancelled || !allLogs) return
+      const logsByHabit = {}
+      allLogs.forEach((log) => {
+        if (!logsByHabit[log.habitude_id]) logsByHabit[log.habitude_id] = []
+        logsByHabit[log.habitude_id].push(log.date)
+      })
+      const computed = {}
+      Object.entries(logsByHabit).forEach(([id, dates]) => { computed[id] = getStreak(dates) })
+      setStreaks(computed)
+    })()
+    return () => { cancelled = true }
+  }, [session?.user?.id])
 
   const weekDays = useMemo(() => getWeekDaysForOffset(weekOffset), [weekOffset])
   const readOnly = weekOffset < 0
@@ -299,6 +306,7 @@ export default function HabitudesTab() {
                       deleteHabitude={deleteHabitude}
                       readOnly={readOnly}
                       sectionId={section.id}
+                      streak={streaks[h.id] ?? null}
                     />
                   ))}
                 </div>
