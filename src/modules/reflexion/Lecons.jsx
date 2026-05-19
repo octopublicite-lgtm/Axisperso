@@ -1,22 +1,35 @@
-import { useState, useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import Badge from '../../components/ui/Badge'
-import { useLocalStorage } from '../../hooks/useLocalStorage'
+import { useAuth } from '../../context/AuthContext'
+import { useApp } from '../../context/AppContext'
+import { supabase } from '../../lib/supabase'
 import { todayKey } from '../../utils/dates'
 import { getDomainColor, getDomainLight } from '../../utils/colors'
 import { DOMAINS } from '../../utils/constants'
 import { Plus, Trash2, Search, X } from 'lucide-react'
-import { v4 as uuidv4 } from 'uuid'
 
 const EMPTY = { titre: '', contenu: '', domaine: '', tags: [] }
 
 export default function Lecons() {
-  const [lecons, setLecons] = useLocalStorage('lecons', [])
+  const { user } = useAuth()
+  const { addToast } = useApp()
+  const [lecons, setLecons] = useState([])
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(EMPTY)
   const [tagInput, setTagInput] = useState('')
   const [search, setSearch] = useState('')
   const [filterDomain, setFilterDomain] = useState('')
   const [filterTag, setFilterTag] = useState('')
+
+  useEffect(() => {
+    if (!user || !supabase) return
+    ;(async () => {
+      const { data, error } = await supabase
+        .from('lecons').select('*').eq('user_id', user.id).order('date', { ascending: false })
+      if (error) { addToast('Erreur de chargement leçons', 'error'); return }
+      setLecons((data ?? []).map((l) => ({ ...l, tags: l.tags ?? [] })))
+    })()
+  }, [user]) // eslint-disable-line
 
   function set(k, v) { setForm((p) => ({ ...p, [k]: v })) }
 
@@ -28,12 +41,23 @@ export default function Lecons() {
 
   function removeTag(tag) { set('tags', form.tags.filter((t) => t !== tag)) }
 
-  function save() {
-    if (!form.titre.trim()) return
-    setLecons((prev) => [{ ...form, id: uuidv4(), date: todayKey() }, ...prev])
+  async function save() {
+    if (!form.titre.trim() || !supabase || !user?.id) return
+    const { data, error } = await supabase.from('lecons')
+      .insert({ user_id: user.id, titre: form.titre, contenu: form.contenu, domaine: form.domaine, tags: form.tags, date: todayKey() })
+      .select('*').single()
+    if (error) { addToast('Erreur de sauvegarde — réessayez', 'error'); return }
+    setLecons((prev) => [{ ...data, tags: data.tags ?? [] }, ...prev])
     setForm(EMPTY)
     setTagInput('')
     setShowForm(false)
+  }
+
+  async function deleteLecon(id) {
+    if (!supabase || !user?.id) return
+    const { error } = await supabase.from('lecons').delete().eq('id', id)
+    if (error) { addToast('Erreur de sauvegarde — réessayez', 'error'); return }
+    setLecons((prev) => prev.filter((l) => l.id !== id))
   }
 
   const allTags = useMemo(() => [...new Set(lecons.flatMap((l) => l.tags ?? []))], [lecons])
@@ -53,13 +77,7 @@ export default function Lecons() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <div style={{ flex: 1, position: 'relative' }}>
           <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)' }} />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Rechercher…"
-            className="input"
-            style={{ paddingLeft: 36 }}
-          />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Rechercher…" className="input" style={{ paddingLeft: 36 }} />
         </div>
         <select value={filterDomain} onChange={(e) => setFilterDomain(e.target.value)} className="input" style={{ width: 'auto' }}>
           <option value="">Tous domaines</option>
@@ -138,12 +156,7 @@ export default function Lecons() {
                   <div className="title">{l.titre}</div>
                   {l.contenu && <div className="preview">{l.contenu}</div>}
                 </div>
-                <button
-                  onClick={() => setLecons((prev) => prev.filter((x) => x.id !== l.id))}
-                  aria-label="Supprimer"
-                  className="btn-icon"
-                  style={{ flexShrink: 0 }}
-                >
+                <button onClick={() => deleteLecon(l.id)} aria-label="Supprimer" className="btn-icon" style={{ flexShrink: 0 }}>
                   <Trash2 size={13} />
                 </button>
               </div>

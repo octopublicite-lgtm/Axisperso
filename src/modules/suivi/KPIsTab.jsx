@@ -1,40 +1,73 @@
-import { useState } from 'react'
-import { useLocalStorage } from '../../hooks/useLocalStorage'
+import { useState, useEffect } from 'react'
+import { useAuth } from '../../context/AuthContext'
+import { useApp } from '../../context/AppContext'
+import { supabase } from '../../lib/supabase'
 import { todayKey } from '../../utils/dates'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { Plus, Trash2, TrendingUp, TrendingDown } from 'lucide-react'
-import { v4 as uuidv4 } from 'uuid'
 
-const EMPTY_KPI = { nom: '', unite: '', cible: '', historique: [] }
+const EMPTY_KPI = { nom: '', unite: '', cible: '' }
 
 export default function KPIsTab() {
-  const [kpis, setKpis] = useLocalStorage('kpis', [])
+  const { user } = useAuth()
+  const { addToast } = useApp()
+  const [kpis, setKpis] = useState([])
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(EMPTY_KPI)
   const [newValues, setNewValues] = useState({})
 
-  function set(k, v) { setForm((p) => ({ ...p, [k]: v })) }
+  useEffect(() => {
+    if (!user || !supabase) return
+    ;(async () => {
+      const [{ data: kpisData, error: kpisErr }, { data: valsData, error: valsErr }] = await Promise.all([
+        supabase.from('kpis').select('*').eq('user_id', user.id),
+        supabase.from('kpi_valeurs').select('*').eq('user_id', user.id).order('date', { ascending: true }),
+      ])
+      if (kpisErr || valsErr) { addToast('Erreur de chargement KPIs', 'error'); return }
+      const joined = (kpisData ?? []).map((k) => ({
+        ...k,
+        historique: (valsData ?? [])
+          .filter((v) => v.kpi_id === k.id)
+          .map((v) => ({ date: v.date, valeur: v.valeur })),
+      }))
+      setKpis(joined)
+    })()
+  }, [user]) // eslint-disable-line
 
-  function addKpi() {
-    if (!form.nom.trim()) return
-    setKpis((prev) => [...prev, { ...form, id: uuidv4(), cible: Number(form.cible) }])
+  function setF(k, v) { setForm((p) => ({ ...p, [k]: v })) }
+
+  async function addKpi() {
+    if (!form.nom.trim() || !supabase || !user?.id) return
+    const { data, error } = await supabase.from('kpis')
+      .insert({ user_id: user.id, nom: form.nom, unite: form.unite, cible: Number(form.cible) || null })
+      .select('*').single()
+    if (error) { addToast('Erreur de sauvegarde — réessayez', 'error'); return }
+    setKpis((prev) => [...prev, { ...data, historique: [] }])
     setForm(EMPTY_KPI)
     setShowForm(false)
   }
 
-  function addValue(kpiId) {
+  async function addValue(kpiId) {
     const val = Number(newValues[kpiId])
-    if (isNaN(val)) return
+    if (isNaN(val) || !supabase || !user?.id) return
+    const { data, error } = await supabase.from('kpi_valeurs')
+      .insert({ user_id: user.id, kpi_id: kpiId, date: todayKey(), valeur: val })
+      .select('*').single()
+    if (error) { addToast('Erreur de sauvegarde — réessayez', 'error'); return }
     setKpis((prev) => prev.map((k) =>
       k.id === kpiId
-        ? { ...k, historique: [...(k.historique ?? []), { date: todayKey(), valeur: val }] }
+        ? { ...k, historique: [...(k.historique ?? []), { date: data.date, valeur: data.valeur }] }
         : k
     ))
     setNewValues((prev) => ({ ...prev, [kpiId]: '' }))
   }
 
-  function deleteKpi(id) {
-    if (confirm('Supprimer ce KPI ?')) setKpis((prev) => prev.filter((k) => k.id !== id))
+  async function deleteKpi(id) {
+    if (!confirm('Supprimer ce KPI ?') || !supabase || !user?.id) return
+    await supabase.from('kpi_valeurs').delete().eq('kpi_id', id)
+    const { error } = await supabase.from('kpis').delete().eq('id', id)
+    if (error) { addToast('Erreur de sauvegarde — réessayez', 'error'); return }
+    setKpis((prev) => prev.filter((k) => k.id !== id))
   }
 
   return (
@@ -50,10 +83,10 @@ export default function KPIsTab() {
         <div className="card" style={{ borderColor: 'var(--orange)' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 8 }}>
-              <input value={form.nom} onChange={(e) => set('nom', e.target.value)} placeholder="Nom *" className="input" />
-              <input value={form.unite} onChange={(e) => set('unite', e.target.value)} placeholder="Unité (MAD, kg…)" className="input" />
+              <input value={form.nom} onChange={(e) => setF('nom', e.target.value)} placeholder="Nom *" className="input" />
+              <input value={form.unite} onChange={(e) => setF('unite', e.target.value)} placeholder="Unité (MAD, kg…)" className="input" />
             </div>
-            <input type="number" value={form.cible} onChange={(e) => set('cible', e.target.value)} placeholder="Objectif cible" className="input" />
+            <input type="number" value={form.cible} onChange={(e) => setF('cible', e.target.value)} placeholder="Objectif cible" className="input" />
             <div style={{ display: 'flex', gap: 8 }}>
               <button className="btn btn-ghost btn-sm" style={{ flex: 1 }} onClick={() => setShowForm(false)}>Annuler</button>
               <button className="btn btn-primary btn-sm" style={{ flex: 1 }} onClick={addKpi}>Créer</button>
@@ -81,13 +114,9 @@ export default function KPIsTab() {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p className="label">{kpi.nom}</p>
                   <div className="value-row">
-                    {current !== null && (
-                      <span className="value">{current}</span>
-                    )}
+                    {current !== null && <span className="value">{current}</span>}
                     {kpi.unite && <span className="target">{kpi.unite}</span>}
-                    {kpi.cible && current !== null && (
-                      <span className="target">/ {kpi.cible}</span>
-                    )}
+                    {kpi.cible && current !== null && <span className="target">/ {kpi.cible}</span>}
                   </div>
                   {diff !== null && (
                     <span className={`trend ${diff >= 0 ? 'up' : 'down'}`}>

@@ -1,39 +1,53 @@
-import { useState, useEffect, useCallback } from 'react'
-import { useLocalStorage } from '../../hooks/useLocalStorage'
+import { useState, useEffect, useRef } from 'react'
+import { useAuth } from '../../context/AuthContext'
+import { useApp } from '../../context/AppContext'
+import { supabase } from '../../lib/supabase'
 import { todayKey, addDays } from '../../utils/dates'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 export default function Journal() {
+  const { user } = useAuth()
+  const { addToast } = useApp()
   const [currentDate, setCurrentDate] = useState(todayKey())
-  const key = `journal_${currentDate}`
-  const [content, setContent] = useLocalStorage(key, '')
-  const [localContent, setLocalContent] = useState(content)
+  const [localContent, setLocalContent] = useState('')
   const [saved, setSaved] = useState(false)
-  const wordCount = localContent.trim() ? localContent.trim().split(/\s+/).length : 0
+  const saveTimer = useRef(null)
 
-  useEffect(() => { setLocalContent(content) }, [content])
+  useEffect(() => {
+    if (!user || !supabase) return
+    setLocalContent('')
+    ;(async () => {
+      const { data, error } = await supabase
+        .from('journal')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('date', currentDate)
+        .maybeSingle()
+      if (error) { addToast('Erreur de chargement journal', 'error'); return }
+      setLocalContent(data?.contenu ?? '')
+    })()
+  }, [user, currentDate]) // eslint-disable-line
 
-  const save = useCallback(
-    (() => {
-      let timer
-      return (val) => {
-        clearTimeout(timer)
-        timer = setTimeout(() => {
-          setContent(val)
-          setSaved(true)
-          setTimeout(() => setSaved(false), 2000)
-        }, 500)
-      }
-    })(),
-    [setContent]
-  )
+  async function saveToSupabase(val) {
+    if (!supabase || !user?.id) return
+    const { error } = await supabase.from('journal').upsert(
+      { user_id: user.id, date: currentDate, contenu: val, updated_at: new Date().toISOString() },
+      { onConflict: 'user_id,date' }
+    )
+    if (error) { addToast('Erreur de sauvegarde — réessayez', 'error'); return }
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+  }
 
   function handleChange(e) {
-    setLocalContent(e.target.value)
-    save(e.target.value)
+    const val = e.target.value
+    setLocalContent(val)
+    if (saveTimer.current) clearTimeout(saveTimer.current)
+    saveTimer.current = setTimeout(() => saveToSupabase(val), 500)
   }
 
   const isToday = currentDate === todayKey()
+  const wordCount = localContent.trim() ? localContent.trim().split(/\s+/).length : 0
   const displayDate = new Date(currentDate + 'T00:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 
   return (

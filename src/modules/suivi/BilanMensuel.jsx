@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import ProgressBar from '../../components/ui/ProgressBar'
-import { useLocalStorage } from '../../hooks/useLocalStorage'
+import { useAuth } from '../../context/AuthContext'
 import { useApp } from '../../context/AppContext'
+import { supabase } from '../../lib/supabase'
 import { getMonthKey } from '../../utils/dates'
 import { getDomainColor } from '../../utils/colors'
 import { DOMAINS } from '../../utils/constants'
@@ -10,38 +11,57 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 const EMPTY = { note: 5, bien: '', passBien: '', lecon: '', intention: '' }
 
+function monthKeyFromOffset(offset) {
+  const d = new Date()
+  d.setMonth(d.getMonth() + offset)
+  return getMonthKey(d)
+}
+
 export default function BilanMensuel() {
-  const [bilans, setBilans] = useLocalStorage('bilans_mensuels', [])
-  const { objectifs } = useApp()
+  const { user } = useAuth()
+  const { addToast, objectifs } = useApp()
+  const [bilans, setBilans] = useState([])
   const [monthOffset, setMonthOffset] = useState(0)
+  const [form, setForm] = useState(EMPTY)
 
-  const baseDate = new Date()
-  baseDate.setMonth(baseDate.getMonth() + monthOffset)
-  const monthKey = getMonthKey(baseDate)
-  const monthLabel = baseDate.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
+  useEffect(() => {
+    if (!user || !supabase) return
+    ;(async () => {
+      const { data, error } = await supabase
+        .from('bilans_mensuels').select('*').eq('user_id', user.id)
+      if (error) { addToast('Erreur de chargement bilans', 'error'); return }
+      setBilans(data ?? [])
+    })()
+  }, [user]) // eslint-disable-line
 
-  const existing = bilans.find((b) => b.mois === monthKey)
-  const [form, setForm] = useState(existing ?? EMPTY)
+  const monthKey = monthKeyFromOffset(monthOffset)
 
-  function goToMonth(offset) {
-    setMonthOffset(offset)
-    const d = new Date()
-    d.setMonth(d.getMonth() + offset)
-    const key = getMonthKey(d)
-    const found = bilans.find((b) => b.mois === key)
-    setForm(found ?? EMPTY)
-  }
+  useEffect(() => {
+    const found = bilans.find((b) => b.mois === monthKey)
+    setForm(found
+      ? { note: found.note, bien: found.bien ?? '', passBien: found.pas_bien ?? '', lecon: found.lecon ?? '', intention: found.intention ?? '' }
+      : EMPTY
+    )
+  }, [bilans, monthKey])
 
   function set(k, v) { setForm((p) => ({ ...p, [k]: v })) }
 
-  function save() {
+  async function save() {
+    if (!supabase || !user?.id) return
+    const row = { user_id: user.id, mois: monthKey, note: form.note, bien: form.bien, pas_bien: form.passBien, lecon: form.lecon, intention: form.intention }
+    const { error } = await supabase.from('bilans_mensuels').upsert(row, { onConflict: 'user_id,mois' })
+    if (error) { addToast('Erreur de sauvegarde — réessayez', 'error'); return }
     setBilans((prev) => {
       const filtered = prev.filter((b) => b.mois !== monthKey)
-      return [...filtered, { ...form, mois: monthKey }]
+      return [...filtered, { ...row }]
     })
   }
 
-  const activeObjectifs = objectifs.filter((o) => o.status === 'En cours')
+  const baseDate = new Date()
+  baseDate.setMonth(baseDate.getMonth() + monthOffset)
+  const monthLabel = baseDate.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
+
+  const activeObjectifs = (objectifs ?? []).filter((o) => o.status === 'En cours')
   const radarData = DOMAINS.map((d) => {
     const domainObjs = activeObjectifs.filter((o) => o.domaine === d.id)
     const avg = domainObjs.length > 0 ? Math.round(domainObjs.reduce((a, o) => a + o.progress, 0) / domainObjs.length) : 0
@@ -51,11 +71,11 @@ export default function BilanMensuel() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <button onClick={() => goToMonth(monthOffset - 1)} aria-label="Mois précédent" className="btn btn-ghost btn-sm" style={{ padding: '6px 8px' }}>
+        <button onClick={() => setMonthOffset((v) => v - 1)} aria-label="Mois précédent" className="btn btn-ghost btn-sm" style={{ padding: '6px 8px' }}>
           <ChevronLeft size={16} />
         </button>
         <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)', flex: 1, textAlign: 'center', textTransform: 'capitalize' }}>{monthLabel}</span>
-        <button onClick={() => goToMonth(monthOffset + 1)} disabled={monthOffset >= 0} aria-label="Mois suivant" className="btn btn-ghost btn-sm" style={{ padding: '6px 8px' }}>
+        <button onClick={() => setMonthOffset((v) => v + 1)} disabled={monthOffset >= 0} aria-label="Mois suivant" className="btn btn-ghost btn-sm" style={{ padding: '6px 8px' }}>
           <ChevronRight size={16} />
         </button>
       </div>
@@ -72,7 +92,7 @@ export default function BilanMensuel() {
                 style={{ '--val': `${(form.note - 1) / 9 * 100}%` }}
               />
             </div>
-            {[['bien', 'Ce qui a bien marché'], ["passBien", "Ce qui n'a pas marché"], ['intention', 'Intention mois prochain']].map(([key, label]) => (
+            {[['bien', 'Ce qui a bien marché'], ['passBien', "Ce qui n'a pas marché"], ['intention', 'Intention mois prochain']].map(([key, label]) => (
               <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <label className="section-label">{label}</label>
                 <textarea value={form[key]} onChange={(e) => set(key, e.target.value)} rows={2} className="input" style={{ resize: 'vertical' }} />

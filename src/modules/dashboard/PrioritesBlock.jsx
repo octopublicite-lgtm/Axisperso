@@ -1,65 +1,54 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '../../context/AuthContext'
-import { push, pull } from '../../lib/cloudSync'
+import { useApp } from '../../context/AppContext'
+import { supabase } from '../../lib/supabase'
 import { todayKey } from '../../utils/dates'
 import { Plus, Trash2 } from 'lucide-react'
 import { v4 as uuidv4 } from 'uuid'
 
-function legacyLS(key) {
-  try { return JSON.parse(localStorage.getItem(key) || 'null') } catch { return null }
-}
-
 export default function PrioritesBlock() {
   const { user } = useAuth()
+  const { addToast } = useApp()
   const today = todayKey()
   const [allPriorities, setAllPriorities] = useState({})
   const [input, setInput] = useState('')
-  const mounted = useRef(false)
 
   useEffect(() => {
-    if (!user) return
-    const userId = user.id
-    console.log('[PrioritesBlock] fetching for userId:', userId)
-    pull(userId, 'priorites').then((data) => {
-      console.log('[PrioritesBlock] fetched:', data)
-      if (data && typeof data === 'object') {
-        setAllPriorities(data)
-      } else {
-        const legacy = legacyLS('axislife_all_priorites')
-        if (legacy && typeof legacy === 'object') {
-          setAllPriorities(legacy)
-          push(userId, 'priorites', legacy)
-        }
-      }
-    }).catch((err) => {
-      console.error('[PrioritesBlock] pull failed:', err)
-      const legacy = legacyLS('axislife_all_priorites')
-      if (legacy && typeof legacy === 'object') setAllPriorities(legacy)
-    })
+    if (!user || !supabase) return
+    ;(async () => {
+      const { data, error } = await supabase
+        .from('priorites_jour').select('*').eq('user_id', user.id).maybeSingle()
+      if (error) { addToast('Erreur de chargement priorités', 'error'); return }
+      if (data?.data) setAllPriorities(data.data)
+    })()
   }, [user]) // eslint-disable-line
 
-  useEffect(() => {
-    if (!mounted.current) { mounted.current = true; return }
-    if (user?.id) push(user.id, 'priorites', allPriorities)
-  }, [allPriorities]) // eslint-disable-line
-
   const priorites = allPriorities[today] ?? []
-  const setPriorities = (updater) => {
-    setAllPriorities((prev) => {
-      const current = prev[today] ?? []
-      const next = typeof updater === 'function' ? updater(current) : updater
-      return { ...prev, [today]: next }
-    })
+
+  async function persist(updated) {
+    if (!supabase || !user?.id) return
+    const { error } = await supabase.from('priorites_jour').upsert(
+      { user_id: user.id, data: updated, updated_at: new Date().toISOString() },
+      { onConflict: 'user_id' }
+    )
+    if (error) { addToast('Erreur de sauvegarde — réessayez', 'error'); return }
+    setAllPriorities(updated)
+  }
+
+  function updateToday(updater) {
+    const current = allPriorities[today] ?? []
+    const next = typeof updater === 'function' ? updater(current) : updater
+    persist({ ...allPriorities, [today]: next })
   }
 
   const add = () => {
     if (!input.trim() || priorites.length >= 3) return
-    setPriorities((prev) => [...prev, { id: uuidv4(), texte: input.trim(), done: false }])
+    updateToday((prev) => [...prev, { id: uuidv4(), texte: input.trim(), done: false }])
     setInput('')
   }
 
-  const toggle = (id) => setPriorities((prev) => prev.map((p) => (p.id === id ? { ...p, done: !p.done } : p)))
-  const remove = (id) => setPriorities((prev) => prev.filter((p) => p.id !== id))
+  const toggle = (id) => updateToday((prev) => prev.map((p) => p.id === id ? { ...p, done: !p.done } : p))
+  const remove = (id) => updateToday((prev) => prev.filter((p) => p.id !== id))
 
   return (
     <div className="card" style={{ padding: '4px 16px' }}>

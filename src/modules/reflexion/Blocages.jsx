@@ -1,33 +1,62 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Badge from '../../components/ui/Badge'
-import { useLocalStorage } from '../../hooks/useLocalStorage'
+import { useAuth } from '../../context/AuthContext'
+import { useApp } from '../../context/AppContext'
+import { supabase } from '../../lib/supabase'
 import { todayKey } from '../../utils/dates'
 import { DOMAINS } from '../../utils/constants'
 import { getDomainColor, getDomainLight } from '../../utils/colors'
 import { Plus, Trash2 } from 'lucide-react'
-import { v4 as uuidv4 } from 'uuid'
 
 const EMPTY = { description: '', domaine: '', impact: 3, plan: '', status: 'Ouvert' }
-
 const IMPACT_COLORS = ['', '#10B981', '#84CC16', '#F5A623', '#F97316', '#E53E3E']
 
 export default function Blocages() {
-  const [blocages, setBlocages] = useLocalStorage('blocages', [])
+  const { user } = useAuth()
+  const { addToast } = useApp()
+  const [blocages, setBlocages] = useState([])
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(EMPTY)
   const [filterStatus, setFilterStatus] = useState('Tous')
 
+  useEffect(() => {
+    if (!user || !supabase) return
+    ;(async () => {
+      const { data, error } = await supabase
+        .from('blocages').select('*').eq('user_id', user.id).order('date', { ascending: false })
+      if (error) { addToast('Erreur de chargement blocages', 'error'); return }
+      setBlocages(data ?? [])
+    })()
+  }, [user]) // eslint-disable-line
+
   function set(k, v) { setForm((p) => ({ ...p, [k]: v })) }
 
-  function save() {
-    if (!form.description.trim()) return
-    setBlocages((prev) => [{ ...form, id: uuidv4(), date: todayKey() }, ...prev])
+  async function save() {
+    if (!form.description.trim() || !supabase || !user?.id) return
+    const { data, error } = await supabase.from('blocages')
+      .insert({ user_id: user.id, description: form.description, domaine: form.domaine, impact: form.impact, plan: form.plan, status: form.status, date: todayKey() })
+      .select('*').single()
+    if (error) { addToast('Erreur de sauvegarde — réessayez', 'error'); return }
+    setBlocages((prev) => [data, ...prev])
     setForm(EMPTY)
     setShowForm(false)
   }
 
-  function toggleStatus(id) {
-    setBlocages((prev) => prev.map((b) => b.id === id ? { ...b, status: b.status === 'Ouvert' ? 'Résolu' : 'Ouvert' } : b))
+  async function toggleStatus(id) {
+    if (!supabase || !user?.id) return
+    const b = blocages.find((x) => x.id === id)
+    if (!b) return
+    const newStatus = b.status === 'Ouvert' ? 'Résolu' : 'Ouvert'
+    const { error } = await supabase.from('blocages').update({ status: newStatus }).eq('id', id)
+    if (error) { addToast('Erreur de sauvegarde — réessayez', 'error'); return }
+    setBlocages((prev) => prev.map((x) => x.id === id ? { ...x, status: newStatus } : x))
+  }
+
+  async function deleteBlocage(id) {
+    if (!supabase || !user?.id) return
+    const { error } = await supabase.from('blocages').delete().eq('id', id)
+    if (error) { addToast('Erreur de sauvegarde — réessayez', 'error'); return }
+    setBlocages((prev) => prev.filter((x) => x.id !== id))
   }
 
   const filtered = blocages.filter((b) => filterStatus === 'Tous' || b.status === filterStatus)
@@ -37,13 +66,7 @@ export default function Blocages() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', gap: 6 }}>
           {['Tous', 'Ouvert', 'Résolu'].map((s) => (
-            <button
-              key={s}
-              onClick={() => setFilterStatus(s)}
-              className={`pill${filterStatus === s ? ' active' : ''}`}
-            >
-              {s}
-            </button>
+            <button key={s} onClick={() => setFilterStatus(s)} className={`pill${filterStatus === s ? ' active' : ''}`}>{s}</button>
           ))}
         </div>
         <button className="btn btn-primary btn-sm" onClick={() => setShowForm((v) => !v)}>
@@ -100,7 +123,7 @@ export default function Blocages() {
                     {solved ? 'Marquer comme ouvert' : 'Marquer comme résolu'}
                   </button>
                 </div>
-                <button onClick={() => setBlocages((prev) => prev.filter((x) => x.id !== b.id))} aria-label="Supprimer" className="btn-icon" style={{ flexShrink: 0 }}>
+                <button onClick={() => deleteBlocage(b.id)} aria-label="Supprimer" className="btn-icon" style={{ flexShrink: 0 }}>
                   <Trash2 size={13} />
                 </button>
               </div>

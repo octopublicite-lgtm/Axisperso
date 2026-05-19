@@ -1,53 +1,72 @@
-import { useState } from 'react'
-import { useLocalStorage } from '../../hooks/useLocalStorage'
+import { useState, useEffect } from 'react'
+import { useAuth } from '../../context/AuthContext'
+import { useApp } from '../../context/AppContext'
+import { supabase } from '../../lib/supabase'
 import { getWeekKey } from '../../utils/dates'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 const EMPTY = { note: 5, bien: '', passBien: '', lecon: '', intention: '' }
 
+function weekKeyFromOffset(offset) {
+  const d = new Date()
+  d.setDate(d.getDate() + offset * 7)
+  return getWeekKey(d)
+}
+
 export default function BilanHebdo() {
-  const [bilans, setBilans] = useLocalStorage('bilans_hebdo', [])
+  const { user } = useAuth()
+  const { addToast } = useApp()
+  const [bilans, setBilans] = useState([])
   const [weekOffset, setWeekOffset] = useState(0)
+  const [form, setForm] = useState(EMPTY)
 
-  const baseDate = new Date()
-  baseDate.setDate(baseDate.getDate() + weekOffset * 7)
-  const weekKey = getWeekKey(baseDate)
-  const isCurrentWeek = weekOffset === 0
+  useEffect(() => {
+    if (!user || !supabase) return
+    ;(async () => {
+      const { data, error } = await supabase
+        .from('bilans_hebdo').select('*').eq('user_id', user.id)
+      if (error) { addToast('Erreur de chargement bilans', 'error'); return }
+      setBilans(data ?? [])
+    })()
+  }, [user]) // eslint-disable-line
 
-  const existing = bilans.find((b) => b.semaine === weekKey)
-  const [form, setForm] = useState(existing ?? EMPTY)
+  const weekKey = weekKeyFromOffset(weekOffset)
 
-  function goToWeek(offset) {
-    setWeekOffset(offset)
-    const d = new Date()
-    d.setDate(d.getDate() + offset * 7)
-    const key = getWeekKey(d)
-    const found = bilans.find((b) => b.semaine === key)
-    setForm(found ?? EMPTY)
-  }
+  useEffect(() => {
+    const found = bilans.find((b) => b.semaine === weekKey)
+    setForm(found
+      ? { note: found.note, bien: found.bien ?? '', passBien: found.pas_bien ?? '', lecon: found.lecon ?? '', intention: found.intention ?? '' }
+      : EMPTY
+    )
+  }, [bilans, weekKey])
 
   function set(k, v) { setForm((p) => ({ ...p, [k]: v })) }
 
-  function save() {
+  async function save() {
+    if (!supabase || !user?.id) return
+    const row = { user_id: user.id, semaine: weekKey, note: form.note, bien: form.bien, pas_bien: form.passBien, lecon: form.lecon, intention: form.intention }
+    const { error } = await supabase.from('bilans_hebdo').upsert(row, { onConflict: 'user_id,semaine' })
+    if (error) { addToast('Erreur de sauvegarde — réessayez', 'error'); return }
     setBilans((prev) => {
       const filtered = prev.filter((b) => b.semaine !== weekKey)
-      return [...filtered, { ...form, semaine: weekKey }]
+      return [...filtered, { ...row }]
     })
   }
 
+  const isCurrentWeek = weekOffset === 0
   const historyList = [...bilans].sort((a, b) => b.semaine.localeCompare(a.semaine)).slice(0, 10)
 
   return (
     <div style={{ display: 'flex', gap: 24 }}>
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button onClick={() => goToWeek(weekOffset - 1)} aria-label="Semaine précédente" className="btn btn-ghost btn-sm" style={{ padding: '6px 8px' }}>
+          <button onClick={() => setWeekOffset((v) => v - 1)} aria-label="Semaine précédente" className="btn btn-ghost btn-sm" style={{ padding: '6px 8px' }}>
             <ChevronLeft size={16} />
           </button>
           <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)', flex: 1, textAlign: 'center' }}>
             {isCurrentWeek ? 'Cette semaine' : `Semaine ${weekKey}`}
           </span>
-          <button onClick={() => goToWeek(weekOffset + 1)} disabled={weekOffset >= 0} aria-label="Semaine suivante" className="btn btn-ghost btn-sm" style={{ padding: '6px 8px' }}>
+          <button onClick={() => setWeekOffset((v) => v + 1)} disabled={weekOffset >= 0} aria-label="Semaine suivante" className="btn btn-ghost btn-sm" style={{ padding: '6px 8px' }}>
             <ChevronRight size={16} />
           </button>
         </div>
@@ -90,7 +109,7 @@ export default function BilanHebdo() {
         {historyList.map((b) => (
           <button
             key={b.semaine}
-            onClick={() => goToWeek(0)}
+            onClick={() => setWeekOffset(0)}
             style={{
               textAlign: 'left', padding: '10px 12px', borderRadius: 10,
               border: `1.5px solid ${b.semaine === weekKey ? 'var(--orange)' : 'var(--border)'}`,
