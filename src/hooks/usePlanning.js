@@ -3,6 +3,24 @@ import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { todayKey } from '../utils/dates'
 
+// ── taches_jour field mapping ─────────────────────────────────────────────────
+// DB columns: heure_debut, heure_fin, domaine_id, priorite
+// App fields:      debut,      fin,     domaine,  priorite
+
+function fromDbTache(row) {
+  return { ...row, debut: row.heure_debut ?? '', fin: row.heure_fin ?? '', domaine: row.domaine_id ?? '' }
+}
+
+function toDbTache(data) {
+  const { debut, fin, domaine, ...rest } = data
+  return {
+    ...rest,
+    ...(debut !== undefined ? { heure_debut: debut } : {}),
+    ...(fin   !== undefined ? { heure_fin:   fin   } : {}),
+    ...(domaine !== undefined ? { domaine_id: domaine } : {}),
+  }
+}
+
 export function usePlanning() {
   const { user } = useAuth()
   const [etapes, setEtapes] = useState([])
@@ -26,7 +44,7 @@ export function usePlanning() {
       ])
       if (etapesData) setEtapes(etapesData)
       if (logsData) setRituelLogs(logsData)
-      if (tachesData) setTachesRaw(tachesData)
+      if (tachesData) setTachesRaw(tachesData.map(fromDbTache))
       if (tbData) setTimeblocks(tbData)
     })()
   }, [user]) // eslint-disable-line
@@ -100,15 +118,15 @@ export function usePlanning() {
     if (!supabase || !user?.id) return
     const ordre = (tachesMap[dateKey] ?? []).length
     const { data: row, error } = await supabase.from('taches_jour')
-      .insert({ user_id: user.id, date: dateKey, done: false, ordre, ...data })
+      .insert({ user_id: user.id, date: dateKey, done: false, ordre, ...toDbTache(data) })
       .select('*').single()
     if (error) { console.error('[addTache]', error.message); return }
-    setTachesRaw((prev) => [...prev, row])
+    setTachesRaw((prev) => [...prev, fromDbTache(row)])
   }, [user, tachesMap])
 
   const updateTache = useCallback(async (id, data) => {
     if (!supabase || !user?.id) return
-    const { error } = await supabase.from('taches_jour').update(data).eq('id', id)
+    const { error } = await supabase.from('taches_jour').update(toDbTache(data)).eq('id', id)
     if (error) { console.error('[updateTache]', error.message); return }
     setTachesRaw((prev) => prev.map((t) => t.id === id ? { ...t, ...data } : t))
   }, [user])
